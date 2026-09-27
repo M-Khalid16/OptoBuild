@@ -28,7 +28,7 @@ SUBSYSTEMS = (
 
 
 def test_version() -> None:
-    assert optobuild.__version__ == "0.0.1"
+    assert optobuild.__version__ == "0.1.0"
 
 
 def test_all_subsystems_present_and_documented() -> None:
@@ -41,4 +41,6 @@ def test_all_subsystems_present_and_documented() -> None:
 
 def test_every_module_imports() -> None:
     for info in pkgutil.walk_packages(optobuild.__path__, prefix="optobuild."):
+        if info.name.endswith(".__main__"):
+            continue  # entry-point script: importing it runs the CLI
         importlib.import_module(info.name)
