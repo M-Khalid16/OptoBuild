@@ -73,6 +73,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", help="run a project file (.json/.yaml)")
     p_run.add_argument("project")
     p_run.add_argument("--seed", type=int, default=None, help="override the project seed")
+    p_gui = sub.add_parser("gui", help="start the graphical editor (needs optobuild[gui])")
+    p_gui.add_argument("project", nargs="?", help="project file or demo:<name>")
     p_ber = sub.add_parser("ber", help="accumulate BER over Monte Carlo noise trials")
     p_ber.add_argument("project", help="project file, or demo:<name> for a built-in demo")
     p_ber.add_argument("--trials", type=int, default=10)
@@ -141,6 +143,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "ber":
             return _ber(args)
+        if args.command == "gui":
+            try:
+                from optobuild.gui.qt.mainwindow import main as gui_main
+            except ImportError as exc:
+                print(
+                    f"error: the GUI needs PySide6 and pyqtgraph ({exc}). "
+                    "Install with: pip install 'optobuild[gui]'",
+                    file=sys.stderr,
+                )
+                return 2
+            return gui_main([args.project] if args.project else [])
     except OptoBuildError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

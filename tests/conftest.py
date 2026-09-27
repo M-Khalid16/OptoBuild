@@ -6,6 +6,11 @@ regression), so ``pytest -m validation`` selects all analytical checks.
 
 from __future__ import annotations
 
+import os
+
+# GUI tests run headless; must be set before Qt is imported anywhere.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 from pathlib import Path
 
 import numpy as np

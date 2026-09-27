@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import pkgutil
 
 import optobuild
@@ -40,7 +41,10 @@ def test_all_subsystems_present_and_documented() -> None:
 
 
 def test_every_module_imports() -> None:
+    has_qt = importlib.util.find_spec("PySide6") is not None
     for info in pkgutil.walk_packages(optobuild.__path__, prefix="optobuild."):
         if info.name.endswith(".__main__"):
             continue  # entry-point script: importing it runs the CLI
+        if info.name.startswith("optobuild.gui.qt") and not has_qt:
+            continue  # optional 'gui' extra not installed
         importlib.import_module(info.name)

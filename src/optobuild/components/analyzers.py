@@ -78,7 +78,7 @@ class EyeDiagramAnalyzer(Component):
     """
 
     type_id = "optobuild.analyzer.eye_diagram"
-    version = "1.0.0"
+    version = "1.1.0"
     display_name = "Eye diagram analyzer"
     category = ComponentCategory.ANALYZER
     input_ports = (PortSpec("in", SignalKind.ELECTRICAL, tap=True),)
@@ -97,6 +97,7 @@ class EyeDiagramAnalyzer(Component):
         context.record("traces", eye.traces)
         context.record("time_s", eye.time_s)
         context.record("sampling_offset", best)
+        context.record("unit", sig.unit)
         if 0 < dd_bits.sum() < dd_bits.size:
             mu1, mu0, s1, s0, q = q_factor(values, dd_bits)
             context.record("q_factor_decision_directed", q)

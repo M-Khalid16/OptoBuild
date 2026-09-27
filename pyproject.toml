@@ -23,6 +23,7 @@ classifiers = [
 
 [project.scripts]
 optobuild = "optobuild.cli.main:main"
+optobuild-gui = "optobuild.gui.qt.mainwindow:main"
 
 [project.optional-dependencies]
 # Project metadata in YAML (JSON needs no extra dependency).
