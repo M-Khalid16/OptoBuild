@@ -26,6 +26,12 @@ class _Ctx:
     def report_progress(self, fraction: float, message: str = "") -> None:
         pass
 
+    def record(self, key: str, value: Any) -> None:
+        pass
+
+    def warn(self, diagnostic: Any) -> None:
+        pass
+
 
 class _Gain(Component):
     """Test-only electrical gain: out = g * in."""

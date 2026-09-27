@@ -9,8 +9,11 @@ hand-write GUI code.
 from __future__ import annotations
 
 import enum
+import math
 from dataclasses import dataclass
 from typing import Any
+
+import numpy as np
 
 from optobuild.signals.kinds import SignalKind
 
@@ -118,6 +121,57 @@ class ParameterSpec:
     def required(self) -> bool:
         """True if the parameter has no default and must be supplied."""
         return self.default is None
+
+    def coerce(self, value: Any) -> Any:
+        """Validate ``value`` against this schema and return it in canonical type.
+
+        Raises ``ValueError`` with a message naming the parameter, the value,
+        the expected type/range and the SI unit. The caller (component base
+        class) turns it into a Diagnostic / ``InvalidParameterError``.
+        """
+        t = self.type
+        if t is ParameterType.BOOL:
+            if not isinstance(value, (bool, np.bool_)):
+                raise ValueError(f"'{self.name}' must be a boolean, got {value!r}.")
+            return bool(value)
+        if t is ParameterType.STRING:
+            if not isinstance(value, str):
+                raise ValueError(f"'{self.name}' must be a string, got {value!r}.")
+            return self._check_choice(value)
+        if t is ParameterType.CHOICE:
+            return self._check_choice(value)
+        if isinstance(value, (bool, np.bool_)) or not isinstance(
+            value, (int, float, np.integer, np.floating)
+        ):
+            raise ValueError(f"'{self.name}' must be a number [{self.unit}], got {value!r}.")
+        if t is ParameterType.INT:
+            if isinstance(value, (float, np.floating)) and not float(value).is_integer():
+                raise ValueError(f"'{self.name}' must be an integer, got {value!r}.")
+            number: float | int = int(value)
+        else:
+            number = float(value)
+            if not math.isfinite(number):
+                raise ValueError(f"'{self.name}' must be finite, got {value!r}.")
+        self._check_range(number)
+        return number
+
+    def _check_choice(self, value: Any) -> Any:
+        if self.choices and value not in self.choices:
+            raise ValueError(f"'{self.name}' must be one of {list(self.choices)}, got {value!r}.")
+        return value
+
+    def _check_range(self, number: float) -> None:
+        lo, hi = self.minimum, self.maximum
+        if lo is not None and (number < lo or (number == lo and not self.minimum_inclusive)):
+            op = ">=" if self.minimum_inclusive else ">"
+            raise ValueError(
+                f"'{self.name}' must be {op} {lo:g} {self.unit}, got {number:g} {self.unit}."
+            )
+        if hi is not None and (number > hi or (number == hi and not self.maximum_inclusive)):
+            op = "<=" if self.maximum_inclusive else "<"
+            raise ValueError(
+                f"'{self.name}' must be {op} {hi:g} {self.unit}, got {number:g} {self.unit}."
+            )
 
 
 __all__ = ["ComponentCategory", "ParameterSpec", "ParameterType", "PortSpec"]

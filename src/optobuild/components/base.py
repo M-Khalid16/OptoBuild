@@ -3,7 +3,8 @@
 A component is a thin, stateless wrapper that:
 
 1. declares metadata (type id, version, name, category, ports, parameters);
-2. validates its parameters (Phase 1);
+2. validates its parameters against the schema at construction time, so a
+   component instance always holds valid, canonical (SI) parameter values;
 3. in :meth:`Component.run`, maps input signals to output signals by calling
    physics / solver / analysis functions. It must not re-implement equations.
 
@@ -24,8 +25,8 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 import numpy as np
 
 from optobuild.components.spec import ComponentCategory, ParameterSpec, PortSpec
-from optobuild.core.diagnostics import Diagnostic
-from optobuild.core.errors import InvalidGraphError
+from optobuild.core.diagnostics import Diagnostic, Severity
+from optobuild.core.errors import InvalidGraphError, InvalidParameterError
 
 TYPE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 """Type ids are dotted lowercase namespaces, e.g. ``optobuild.source.cw_laser``."""
@@ -55,6 +56,17 @@ class RunContext(Protocol):
 
     def report_progress(self, fraction: float, message: str = "") -> None:
         """Report progress in [0, 1] for long-running components."""
+        ...
+
+    def record(self, key: str, value: Any) -> None:
+        """Store a named analysis result (numbers, arrays, dataclasses) (ADR-0009).
+
+        Used by analyzers/sinks, which produce results rather than signals.
+        """
+        ...
+
+    def warn(self, diagnostic: Diagnostic) -> None:
+        """Attach a run-time diagnostic (e.g. aliasing risk) to the results."""
         ...
 
 
@@ -105,7 +117,44 @@ class Component(ABC):
                 hint="Give each component a unique name within its graph.",
             )
         self._name = name
-        self._parameters: dict[str, Any] = dict(parameters or {})
+        given = dict(parameters or {})
+        known = {spec.name: spec for spec in type(self).parameter_specs}
+        unknown = sorted(set(given) - set(known))
+        if unknown:
+            raise InvalidParameterError(
+                f"Component '{name}' ({type(self).type_id}) has no parameter(s) {unknown}.",
+                hint=f"Valid parameters: {sorted(known)}.",
+            )
+        values: dict[str, Any] = {}
+        problems: list[str] = []
+        for spec in known.values():
+            if spec.name in given:
+                raw = given[spec.name]
+            elif spec.required:
+                problems.append(f"'{spec.name}' is required [{spec.unit}]")
+                continue
+            else:
+                raw = spec.default
+            try:
+                values[spec.name] = spec.coerce(raw)
+            except ValueError as exc:
+                problems.append(str(exc))
+        if problems:
+            raise InvalidParameterError(
+                f"Invalid parameters for component '{name}' ({type(self).type_id}): "
+                + "; ".join(problems),
+                hint="Correct the listed values; numeric values are in SI units.",
+            )
+        self._parameters = values
+        diagnostics = self.validate()
+        errors = [d for d in diagnostics if d.severity is Severity.ERROR]
+        if errors:
+            raise InvalidParameterError(
+                f"Invalid parameters for component '{name}' ({type(self).type_id}): "
+                + "; ".join(d.message for d in errors),
+                hint=" ".join(d.hint for d in errors if d.hint) or None,
+            )
+        self._diagnostics = tuple(diagnostics)
 
     @property
     def name(self) -> str:
@@ -117,6 +166,25 @@ class Component(ABC):
         """Read-only view of the parameter values (SI units)."""
         return MappingProxyType(self._parameters)
 
+    @property
+    def diagnostics(self) -> tuple[Diagnostic, ...]:
+        """Non-fatal diagnostics (warnings/info) found when the component was created."""
+        return self._diagnostics
+
+    def with_parameters(self, **changes: Any) -> Component:
+        """New instance with the same name and some parameters changed (validated)."""
+        merged = dict(self._parameters)
+        merged.update(changes)
+        return type(self)(self._name, merged)
+
+    @classmethod
+    def parameter_spec(cls, name: str) -> ParameterSpec:
+        """Schema of parameter ``name``."""
+        for spec in cls.parameter_specs:
+            if spec.name == name:
+                return spec
+        raise InvalidParameterError(f"{cls.type_id} has no parameter '{name}'.")
+
     def inputs(self) -> tuple[PortSpec, ...]:
         """Input ports of this instance (default: the class declaration)."""
         return type(self).input_ports
@@ -126,11 +194,13 @@ class Component(ABC):
         return type(self).output_ports
 
     def validate(self) -> list[Diagnostic]:
-        """Return diagnostics for the current parameters.
+        """Cross-parameter physical checks, run after schema validation.
 
-        Phase 0 defines the hook only. Phase 1 adds schema-driven validation
-        (types, ranges, required values) here; subclasses extend it with
-        cross-parameter physical checks and must call ``super().validate()``.
+        Schema checks (types, ranges, required values) already happened in
+        ``__init__``. Subclasses override this to add checks that involve
+        several parameters, returning ``ERROR`` diagnostics for invalid
+        combinations (which make construction fail) and ``WARNING``s for
+        questionable ones (kept in :attr:`diagnostics`).
         """
         return []
 
