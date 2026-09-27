@@ -32,11 +32,15 @@ LAYERS: dict[str, int] = {
     "gui": 9,
 }
 EXTRA_FORBIDDEN: dict[str, set[str]] = {"gui": {"physics", "solvers", "numerics"}}
+ALLOWED_EXCEPTIONS: dict[str, set[str]] = {"gui": {"optobuild.numerics.layout"}}
+"""Modules exempt from EXTRA_FORBIDDEN: the layout is a data definition the GUI
+must edit (ADR-0013); it performs no numerical computation."""
+GUI_TOOLKITS = ("PySide6", "PyQt5", "PyQt6", "pyqtgraph", "shiboken6")
 
 PKG_ROOT = Path(optobuild.__file__).parent
 
 
-def _imported_subsystems(path: Path) -> set[str]:
+def _imported_modules(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found: set[str] = set()
     for node in ast.walk(tree):
@@ -47,10 +51,20 @@ def _imported_subsystems(path: Path) -> set[str]:
             names = [node.module]
         elif isinstance(node, ast.ImportFrom) and node.level > 0:
             raise AssertionError(f"{path}: use absolute imports (found relative import)")
-        for name in names:
-            parts = name.split(".")
-            if parts[0] == "optobuild" and len(parts) > 1:
-                found.add(parts[1])
+        found.update(names)
+    return found
+
+
+def _imported_subsystems(path: Path, owner: str = "") -> set[str]:
+    found: set[str] = set()
+    for name in _imported_modules(path):
+        parts = name.split(".")
+        if parts[0] == "optobuild" and len(parts) > 1:
+            if any(
+                name == m or name.startswith(m + ".") for m in ALLOWED_EXCEPTIONS.get(owner, ())
+            ):
+                continue
+            found.add(parts[1])
     return found
 
 
@@ -66,7 +80,7 @@ def test_no_upward_imports() -> None:
         if len(rel.parts) < 2:
             continue  # top-level optobuild/__init__.py
         owner = rel.parts[0]
-        for dep in _imported_subsystems(path):
+        for dep in _imported_subsystems(path, owner):
             if dep not in LAYERS:
                 violations.append(f"{rel}: imports unknown subsystem '{dep}'")
             elif LAYERS[dep] > LAYERS[owner]:
@@ -74,3 +88,23 @@ def test_no_upward_imports() -> None:
             elif dep in EXTRA_FORBIDDEN.get(owner, set()):
                 violations.append(f"{rel}: '{owner}' must not import '{dep}'")
     assert not violations, "\n".join(violations)
+
+
+def test_only_the_gui_imports_gui_toolkits() -> None:
+    """The engine must run headless: Qt/pyqtgraph are imported only under optobuild.gui."""
+    offenders = []
+    for path in PKG_ROOT.rglob("*.py"):
+        rel = path.relative_to(PKG_ROOT)
+        if rel.parts[0] == "gui":
+            continue
+        for mod in _imported_modules(path):
+            if mod.split(".")[0] in GUI_TOOLKITS:
+                offenders.append(f"{rel}: imports {mod}")
+    assert not offenders, "\n".join(offenders)
+
+
+def test_gui_models_are_qt_free() -> None:
+    """Qt-free GUI modules (forms, document, plotdata) must not import Qt."""
+    for name in ("forms.py", "document.py", "plotdata.py"):
+        mods = _imported_modules(PKG_ROOT / "gui" / name)
+        assert not [m for m in mods if m.split(".")[0] in GUI_TOOLKITS], name

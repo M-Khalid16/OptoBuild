@@ -13,7 +13,8 @@ Two interfaces are provided:
 
 Conventions
 -----------
-* ``dB`` for power ratios: ``r = 10**(x/10)``.
+* ``dB`` for power ratios: ``r = 10**(x/10)``; ``dB loss`` for transmissions
+  expressed as a positive loss: ``r = 10**(-x/10)`` (5 dB loss -> r = 0.316).
 * ``dBm``: ``P = 1 mW * 10**(x/10)``.
 * ``dB/km`` is converted to the *power* attenuation coefficient
   ``alpha [1/m]`` with ``P(L) = P(0) exp(-alpha L)``:
@@ -182,6 +183,14 @@ _add(Unit("dB/km", "attenuation", lambda v: db_per_km_to_per_m(v), lambda v: per
 _add(Unit("dBm", "power", lambda v: dbm_to_watt(v), lambda v: watt_to_dbm(v)))
 _add(_scale("ratio", "ratio", 1.0))
 _add(Unit("dB", "ratio", lambda v: db_to_linear(v), lambda v: linear_to_db(v)))
+_add(
+    Unit(
+        "dB loss",
+        "ratio",
+        lambda v: db_to_linear(-np.asarray(v, dtype=float)),
+        lambda v: -np.asarray(linear_to_db(v)),
+    )
+)
 
 
 def get_unit(symbol: str) -> Unit:

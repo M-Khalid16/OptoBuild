@@ -131,3 +131,10 @@ def test_parse_to_si() -> None:
     assert u.parse_to_si("1550 nm", expect="length") == pytest.approx(1550e-9)
     with pytest.raises(UnitError):
         u.parse_to_si("1550 nm", expect="frequency")
+
+
+def test_db_loss_presentation_unit() -> None:
+    assert u.to_si(5.0, "dB loss") == pytest.approx(10 ** (-0.5))
+    assert u.from_si(10 ** (-0.5), "dB loss") == pytest.approx(5.0)
+    assert u.from_si(1.0, "dB loss") == pytest.approx(0.0, abs=1e-15)
+    assert u.get_unit("dB loss").dimension == "ratio"

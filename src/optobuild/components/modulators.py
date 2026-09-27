@@ -138,7 +138,7 @@ class MachZehnderModulator(Component):
             ParameterType.FLOAT,
             default=1.0,
             unit="1",
-            display_unit="dB",
+            display_unit="dB loss",
             minimum=0.0,
             minimum_inclusive=False,
             maximum=1.0,
