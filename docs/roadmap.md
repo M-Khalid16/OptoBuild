@@ -70,11 +70,29 @@ parameters (ADR-0010), tracked-noise representation, HDF5 results.
 
 Status: complete (v0.3.0).
 
+## Phase 3 — GUI and schematic editor ✅
+
+Exit criteria (all met, tested headless in `tests/integration/test_gui_qt.py`
+and `tests/unit/test_gui_*.py`):
+
+* components from a palette grouped by category; drag-to-connect with the
+  graph's type and fan-out rules (rejections explained in the status bar);
+* parameter forms generated from `ParameterSpec` with display units
+  (dBm, nm, GHz, km, dB/km, ps/(nm km), dB loss, ...), values stored in SI;
+  invalid input rejected with the component's message and reverted;
+* rename, move, delete, undo/redo; open/save projects; built-in demos;
+* simulation settings (seed, global layout);
+* background runs with progress and cancellation, result caching between runs;
+* results: scalar table, eye diagram, optical spectrum, waveforms of every
+  output port, diagnostics; stale-result indicator; HDF5 export;
+* no physics in the GUI (import rules enforced by test).
+
+Status: complete (v0.4.0). ADR-0013. Screenshot: `docs/images/gui_optical_link.png`.
+
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 3 | GUI and schematic editor (PySide6, PyQtGraph); forms from `ParameterSpec` |
 | 4 | Advanced fiber propagation: SSFM/NLSE, step-size and nonlinear-phase diagnostics, spectral truncation, wrap-around |
 | 5 | FSO channel and link-budget analysis |
 | 6 | Coherent optical communication (dual-pol, DSP, EVM, constellations, OSNR) |

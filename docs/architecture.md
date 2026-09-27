@@ -40,7 +40,9 @@ may import from its **own or lower** layers only. This is enforced by
  L0  core                                          (constants, units, errors, diagnostics, rng)
 ```
 
-Additional rule: `gui` must not import `physics`, `solvers` or `numerics`.
+Additional rule: `gui` must not import `physics`, `solvers` or `numerics`
+(sole exception: the data-only `optobuild.numerics.layout`, ADR-0013), and
+only `gui` may import Qt/pyqtgraph.
 It displays results produced by `analysis`/`engine` and edits graphs through
 `graph`/`components` metadata.
 
@@ -75,7 +77,7 @@ It displays results produced by `analysis`/`engine` and edits graphs through
 | `reporting` | Matplotlib figures, report generation | physics |
 | `plugins` | entry-point discovery and registration of third-party components | — |
 | `cli` | command-line entry points | physics |
-| `gui` | PySide6 application, schematic editor, auto-generated parameter forms | physics, numerics |
+| `gui` | Qt-free models (`forms`, `document`, `plotdata`) and PySide6 views (`gui.qt`): schematic editor, auto-generated parameter forms, results viewer (ADR-0013) | physics, solvers, numerics (except the data-only `numerics.layout`) |
 
 ## 4. Repository layout
 

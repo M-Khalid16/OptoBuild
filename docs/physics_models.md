@@ -180,7 +180,11 @@ Every implemented model has:
 
 * Power: `P_avg = mean Σ_p|A_p|²`, `P_peak = max`.
 * Spectrum: `S_k = |X_k|²/T` summed over polarizations, `ν = f_ref + f_k`,
-  `λ = c/ν`, power per rectangular RBW; Parseval `Σ S df = P_avg`.
+  `λ = c/ν`, power per rectangular RBW; Parseval `Σ S df = P_avg`. With a
+  rectangular RBW, strong discrete lines (the carrier, and lines at multiples
+  of the bit rate caused by e.g. the MZM's cos² nonlinearity) produce visible
+  steps where they enter/leave the window; this is the correct response of a
+  rectangular filter, not an artefact of the plot.
 * Eye: traces of `n` bit periods at the simulated samples (no interpolation),
   centred on the max-variance instant; decision-directed Q and eye opening are
   labelled as such.

@@ -58,6 +58,12 @@ cannot pass unnoticed.
 | Monte Carlo BER (independent trials) | `n_trials × Σ ½ erfc(…)` | ✅ `test_monte_carlo_ber.py` |
 | HDF5 results round trip | bit-exact signals and results | ✅ `tests/integration/test_results_hdf5.py` |
 
+GUI tests: Qt-free models in `tests/unit/test_gui_*.py`; the Qt views run
+headless (`QT_QPA_PLATFORM=offscreen`, set in `tests/conftest.py`) in
+`tests/integration/test_gui_qt.py`, including real mouse drags; they are
+skipped when PySide6/pyqtgraph are not installed
+(`pip install -e ".[dev,gui]"`).
+
 ## 4. Commands
 
 ```bash

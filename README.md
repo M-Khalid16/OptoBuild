@@ -4,7 +4,8 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 2 complete (v0.2.0)** — the first validated
+**Current status: Phase 3 complete (v0.4.0)** — GUI on top of the validated
+link. Phase 2 (v0.2.0) delivered — the first validated
 end-to-end optical link:
 
 ```
@@ -24,6 +25,22 @@ Framework (Phase 1): immutable signals, typed component ports and parameter
 schemas, registry, graph validation, deterministic topological execution with
 caching/progress/cancellation, per-component seeded RNG, strict JSON/YAML
 projects, CLI.
+
+## Graphical editor (Phase 3)
+
+![OptoBuild GUI running the reference link](docs/images/gui_optical_link.png)
+
+```bash
+pip install -e ".[gui]"             # PySide6 + pyqtgraph
+optobuild gui demo:optical_link     # or: optobuild-gui path/to/project.json
+```
+
+Palette → schematic (drag from port to port to connect; incompatible ports
+are rejected with an explanation) → parameter forms generated from each
+component's schema with display units → run (F5) in the background → eye
+diagram, spectrum, waveforms, results table and diagnostics. On headless
+Linux Qt needs the EGL/GL system libraries (e.g. `libegl1 libgl1
+libxkbcommon0 libfontconfig1`); tests use `QT_QPA_PLATFORM=offscreen`.
 
 ## Quick start
 

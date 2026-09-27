@@ -8,7 +8,8 @@ feature count. Read `docs/architecture.md` and `docs/roadmap.md` first.
   phase (GUI, SSFM, FSO, coherent, photonic circuits, lasers, ultrafast)
   until the current phase's exit criteria hold and all tests pass.
 * Keep the repo runnable after every commit: `pip install -e ".[dev]"`,
-  `pytest`, `ruff check .`, `ruff format --check .` must pass.
+  `pytest`, `ruff check .`, `ruff format --check .` must pass. Install
+  `".[dev,gui]"` to also run the headless GUI tests.
 * Small, logically separated commits. Inspect `git status` first; never
   overwrite unrelated user work.
 

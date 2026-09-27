@@ -24,3 +24,4 @@ nav:
       - ADR-0010 Grids and bit timing: decisions/0010-sampling-grid-and-bit-timing.md
       - ADR-0011 Global layout: decisions/0011-global-simulation-layout.md
       - ADR-0012 Stochastic components and trials: decisions/0012-stochastic-components-and-trials.md
+      - ADR-0013 GUI architecture: decisions/0013-gui-architecture.md

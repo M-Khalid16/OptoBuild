@@ -1,7 +1,7 @@
 {
   "format": "optobuild-project",
   "schema_version": 2,
-  "optobuild_version": "0.3.0",
+  "optobuild_version": "0.4.0",
   "metadata": {
     "title": "10 Gb/s NRZ-OOK reference link"
   },
@@ -194,7 +194,7 @@
     {
       "name": "eye",
       "type_id": "optobuild.analyzer.eye_diagram",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parameters": {
         "symbols_per_trace": 2
       },
