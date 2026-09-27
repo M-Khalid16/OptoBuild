@@ -98,10 +98,13 @@ Nested subpackages are created **when their first module is written**, not in
 advance, to avoid empty scaffolding. The planned nesting is:
 
 ```
-physics/    fiber/ modulation/ detection/ noise/ sources/ | atmospheric/ laser/ photonics/
-analysis/   ber, qfactor, eye, spectrum, power | evm, osnr, constellation, link_budget, pulse
+physics/    prbs.py sources.py modulation.py fiber.py noise.py detection.py
+            | atmospheric/ laser/ photonics/
+analysis/   ber, decision, eye, spectrum, power | evm, osnr, constellation, link_budget, pulse
+numerics/   grid, fft, filters, sampling (diagnostics)
 solvers/    linear_propagation | ssfm/ ode/ cavity/
-components/ sources/ modulators/ fiber/ detectors/ electrical/ analyzers/
+components/ sources.py modulators.py fiber.py detectors.py electrical.py analyzers.py
+            (flat modules while each holds a few classes; split into packages when they grow)
             | amplifiers/ passive/ dsp/ fso/ photonics/ laser/
 engine/     context, executor, cache | iterative
 ```

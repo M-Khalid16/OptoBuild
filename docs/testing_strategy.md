@@ -45,16 +45,16 @@ cannot pass unnoticed.
 | Parseval energy | theorem | ✅ |
 | PSD integrates to mean power; CW in DC bin | definition | ✅ |
 | Gaussian Fourier pair; shift theorem; analytic energy | closed form | ✅ `tests/validation/test_fft_analytic_pairs.py` |
-| CW power normalization | `mean|A|² = P0` | Phase 2 |
-| MZM transfer curve, ER, quadrature point | closed form (physics_models §3.4) | Phase 2 |
-| Fiber attenuation | `P0 exp(−αL)` | Phase 2 |
-| Gaussian dispersive broadening | `T1/T0 = sqrt(1+(L/L_D)²)` | Phase 2 |
-| PIN mean current | `I = R P + I_d` | Phase 2 |
-| PIN noise variance | `(G_shot + G_th) B_eq` | Phase 2 |
-| Filter −3 dB point, NEB | analytic | Phase 2 |
-| BER counting | injected errors | Phase 2 |
-| BER vs. AWGN theory | `½ erfc(Q/√2)` | Phase 2 |
-| Reproducibility | identical seeds ⇒ identical arrays; different component names ⇒ independent streams | Phase 1 |
+| CW power normalization | `mean(abs(A)²) = P0` | ✅ `tests/validation/test_sources.py` |
+| MZM transfer curve, ER, quadrature point | closed form (physics_models §3.4) | ✅ `test_modulation.py` |
+| Fiber attenuation | `P0 exp(−αL)` | ✅ `test_fiber.py` |
+| Gaussian dispersive broadening (full complex field) | `T1/T0 = sqrt(1+(L/L_D)²)` | ✅ `test_fiber.py` |
+| PIN mean current | `I = R P + I_d` | ✅ `test_detection.py` |
+| PIN noise variance | `(G_shot + G_th) B_eq` | ✅ `test_detection.py` |
+| Filter −3 dB point, NEB, impulse response | analytic | ✅ `test_filters.py` |
+| BER counting | injected errors | ✅ `test_ber.py` |
+| BER vs. Gaussian theory (whole link, incl. ISI) | `Σ ½ erfc(abs(m_k−th)/(√2σ))` | ✅ `test_link_ber.py` |
+| Reproducibility | identical seeds ⇒ identical arrays; different component names ⇒ independent streams | ✅ `tests/integration/test_reproducibility.py`, `test_optical_link.py` |
 
 ## 4. Commands
 

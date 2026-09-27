@@ -15,5 +15,6 @@ new ADR that *supersedes* the old one.
 | [0007](0007-numerical-backend.md) | Numerical backend strategy | Accepted |
 | [0008](0008-reproducible-randomness.md) | Reproducible randomness | Accepted |
 | [0009](0009-construction-validation-and-results.md) | Construction-time validation and recorded results (amends 0004) | Accepted |
+| [0010](0010-sampling-grid-and-bit-timing.md) | Per-source sampling grids and bit-timing metadata | Accepted |
 
 Template: [template.md](template.md).

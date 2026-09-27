@@ -47,7 +47,7 @@ determined; a signal propagates across several components; project config
 saves and loads; seeds reproducible; test suite passes; package installs;
 CLI example executes.
 
-## Phase 2 — First validated optical link
+## Phase 2 — First validated optical link ✅
 
 PRBS → NRZ → MZM ← CW laser; MZM → fiber (attenuation, delay, dispersion) →
 PIN → electrical LPF → decision → BER; plus power meter, OSA, eye diagram.
@@ -55,6 +55,11 @@ All models per [physics_models.md](physics_models.md) §3 with the validation
 catalogue of [testing_strategy.md](testing_strategy.md) §3; one end-to-end
 example; sampling diagnostics (aliasing, window wrap-around, pattern
 periodicity, samples/symbol).
+
+Status: complete (v0.2.0). Example: `examples/optical_link.py`,
+`optobuild demo optical_link`. Validation summary in
+[physics_models.md](physics_models.md) §3. Deferred: global layout
+parameters (ADR-0010), tracked-noise representation, HDF5 results.
 
 ## Later phases
 

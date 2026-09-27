@@ -21,7 +21,8 @@ are added when the first component needs them. Decisions: ADR-0001
    producing component name/type/version, and model-specific annotations
    (e.g. `symbol_rate`, `samples_per_symbol`, reference bit sequence id).
    Metadata never influences physics silently; components read it only via
-   documented keys.
+   documented keys, defined in `optobuild.signals.metadata`: `bit_rate`
+   [bit/s], `samples_per_bit`, `pattern` (ADR-0010).
 
 ## 2. Signal types
 

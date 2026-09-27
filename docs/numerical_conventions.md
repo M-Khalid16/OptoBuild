@@ -134,7 +134,17 @@ All conversions are implemented once in `core.units` (Phase 1).
 
 ## 6. Numerical limitations and required diagnostics
 
-These are inherent to the representation and must be reported, not hidden:
+These are inherent to the representation and must be reported, not hidden.
+Implemented diagnostics (Phase 2): `sampling.aliasing_risk` (NRZ generator,
+MZM output), `sampling.window_wraparound` (fiber), `sampling.samples_per_symbol`
+(NRZ generator), `sampling.pattern_periodicity` (PRBS), `laser.offset_not_periodic`,
+`filter.bandwidth_above_nyquist`, `ber.low_error_count`,
+`ber.alignment_unreliable`; inconsistent grids raise `SamplingError`.
+
+Known limitation of the aliasing heuristic: it measures energy in the outer
+10 % of the band. Harmonics of a strictly periodic waveform that fold exactly
+onto lower bins (e.g. a 0101… pattern at 4 samples/bit) are not detected.
+Random-like patterns (PRBS) are detected reliably.
 
 | Limitation | Cause | Diagnostic (Phase 1/2) |
 |---|---|---|

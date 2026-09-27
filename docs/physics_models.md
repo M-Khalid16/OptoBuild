@@ -1,156 +1,192 @@
 # Physics models
 
-Status: **no physics model is implemented yet.** This document defines the
-mandatory documentation template and records the *planned* Phase 2 models so
-that their equations, units and conventions are agreed before code is written.
-Everything in §3 is a specification, not a claim about existing code.
+Status: **Phase 2 models implemented and validated** (v0.2.0). Later-phase
+models are listed in §2 as *not started*; nothing here describes code that
+does not exist.
 
 All formulas use the conventions of [numerical_conventions.md](numerical_conventions.md):
 complex envelope `A` in sqrt(W), `E = Re{A exp(+i 2π f_ref t)}`, forward FT
-kernel `exp(−i 2π f t)`, SI units.
+kernel `exp(−i 2π f t)`, SI units. Equations are implemented once, in the
+module named in each section; components only call these functions.
 
 ## 1. Mandatory template
 
-Every implemented model gets a section with:
+Every implemented model has:
 
 1. **Equation(s)**
 2. **Symbols** with **SI units**
 3. **Assumptions**
 4. **Range of applicability**
-5. **Numerical implementation** (function name, discretization, complexity)
+5. **Numerical implementation** (function name, discretization)
 6. **Known limitations**
 7. **References**
-8. **Validation** (test file and analytical reference, tolerance and why)
-
-A model is not "implemented" until all eight items exist.
+8. **Validation** (test file, analytical reference, tolerance rationale)
 
 ## 2. Model index
 
-| Model | Phase | Status | Module (planned) |
-|---|---|---|---|
-| CW laser (ideal) | 2 | planned | `physics/sources` |
-| PRBS (LFSR) | 2 | planned | `physics/sources` (digital) |
-| NRZ waveform | 2 | planned | `physics/modulation` |
-| Mach-Zehnder modulator | 2 | planned | `physics/modulation` |
-| Fiber: attenuation, delay, chromatic dispersion | 2 | planned | `physics/fiber` |
-| PIN photodiode with shot/thermal/dark noise | 2 | planned | `physics/detection`, `physics/noise` |
-| Electrical low-pass filters | 2 | planned | `physics/…` / `numerics` filters |
-| Decision circuit, BER counting | 2 | planned | `analysis/ber` |
-| Q-factor / Gaussian BER reference | 2 | planned | `analysis/qfactor` |
-| Optical power, spectrum, eye diagram | 2 | planned | `analysis/…` |
-| SSFM / NLSE | 4 | not started | `solvers/ssfm` |
-| Atmospheric channel, turbulence | 5 | not started | `physics/atmospheric` |
-| Coherent receiver / DSP | 6 | not started | — |
-| Photonic circuit elements | 7 | not started | `physics/photonics` |
-| Laser rate equations, fiber lasers | 8 | not started | `physics/laser` |
-| Ultrafast / mode-locked cavities | 9 | not started | `solvers/cavity` |
+| Model | Phase | Status | Implementation | Component |
+|---|---|---|---|---|
+| CW laser (ideal) | 2 | ✅ validated | `physics.sources` | `optobuild.source.cw_laser` |
+| PRBS (maximal-length LFSR) | 2 | ✅ validated | `physics.prbs` | `optobuild.source.prbs` |
+| NRZ waveform | 2 | ✅ validated | `physics.modulation` | `optobuild.modulator.nrz_generator` |
+| Mach-Zehnder modulator | 2 | ✅ validated | `physics.modulation` | `optobuild.modulator.mzm` |
+| Linear fiber: loss, delay, β2, β3 | 2 | ✅ validated | `physics.fiber` | `optobuild.channel.linear_fiber` |
+| PIN photodiode, shot/thermal/dark noise | 2 | ✅ validated | `physics.detection`, `physics.noise` | `optobuild.detector.pin` |
+| Electrical low-pass filters | 2 | ✅ validated | `numerics.filters` | `optobuild.electrical.lowpass_filter` |
+| Decision circuit | 2 | ✅ validated | `analysis.decision` | `optobuild.electrical.decision` |
+| BER counting, confidence, Gaussian theory | 2 | ✅ validated | `analysis.ber` | `optobuild.analyzer.ber` |
+| Optical power, spectrum, eye data | 2 | ✅ validated | `analysis.power/spectrum/eye` | `optobuild.analyzer.*` |
+| SSFM / NLSE | 4 | not started | — | — |
+| Atmospheric channel, turbulence | 5 | not started | — | — |
+| Coherent receiver / DSP | 6 | not started | — | — |
+| Photonic circuit elements | 7 | not started | — | — |
+| Laser rate equations, fiber lasers | 8 | not started | — | — |
+| Ultrafast / mode-locked cavities | 9 | not started | — | — |
 
-## 3. Planned Phase 2 models (specification)
+## 3. Phase 2 models
 
-### 3.1 CW laser (ideal)
+### 3.1 CW laser (ideal) — `physics.sources.cw_field`
 
-`A_p(t) = sqrt(P0) · exp(i φ0) · j_p`, `j` = unit Jones vector.
-Symbols: `P0` [W] output power, `φ0` [rad] phase, `f_ref` [Hz] (or `λ0 = c/f_ref` [m]).
-The laser frequency may be offset from the signal reference: `f_laser = f_ref + Δf`
-gives `A ∝ exp(i 2π Δf t)`; Δf must satisfy |Δf| < fs/2 and should be a
-multiple of df to avoid a window-edge phase discontinuity (diagnostic).
-Assumptions: zero linewidth, no RIN (phase noise / RIN in Phase 8).
-Validation: mean |A|² = P0 exactly; spectrum is a single bin with power P0.
+1. `A(t) = sqrt(P0) · exp(i (φ0 + 2π Δf t))`, single polarization.
+2. `P0` [W], `φ0` [rad], `Δf` [Hz] detuning from `f_ref = c/λ0`, `λ0` [m].
+3. Zero linewidth, no RIN, no chirp.
+4. `P0 ≥ 0`; `|Δf| < fs/2` (enforced; error otherwise).
+5. Closed form sampled on the grid.
+6. `Δf` not a multiple of `df` → phase jump at the periodic window edge
+   (warning `laser.offset_not_periodic`). Phase noise/RIN: Phase 8.
+7. Saleh & Teich, ch. 16.
+8. `tests/validation/test_sources.py`: `mean|A|² = P0` to 1e-14 (round-off);
+   single spectral line with power `P0`; dBm round trip.
 
-### 3.2 PRBS
+### 3.2 PRBS — `physics.prbs.prbs`
 
-Fibonacci LFSR over GF(2); sequence length `2^m − 1`. Default polynomials per
-ITU-T O.150 (e.g. PRBS7: x⁷+x⁶+1; PRBS15: x¹⁵+x¹⁴+1; PRBS23: x²³+x¹⁸+1;
-PRBS31: x³¹+x²⁸+1). Deterministic given the initial state (non-zero).
-Validation: period = 2^m − 1; exactly 2^(m−1) ones per period; comparison
-with an independent bit-by-bit reference implementation.
+1. `s[n] = s[n−k] ⊕ s[n−m]` (Fibonacci LFSR, taps m, k of `x^m + x^k + 1`).
+2. Bits (dimensionless), order `m`, period `2^m − 1`.
+3. Primitive trinomials: PRBS7 (7,6), 9 (9,5), 10 (10,7), 11 (11,9),
+   15 (15,14), 20 (20,3), 23 (23,18), 31 (31,28).
+4. Any `n_bits ≥ 1`; seed ∈ [1, 2^m − 1].
+5. Vectorized recurrence in blocks of k bits.
+6. ITU-T O.150 inversion/bit-order conventions are **not** reproduced — the
+   sequences are maximal-length with the O.150 polynomials but not
+   bit-identical to O.150 test instruments.
+7. ITU-T O.150; S. W. Golomb, *Shift Register Sequences*.
+8. `test_sources.py`: minimal period `2^m − 1` (checked against every prime
+   divisor), balance `2^(m−1)` ones, bit-exact agreement with an independent
+   bit-by-bit LFSR for all orders.
 
-### 3.3 NRZ waveform generator
+### 3.3 NRZ waveform — `physics.modulation.nrz_waveform`
 
-`v(t) = V_0 + (V_1 − V_0) · Σ_k b_k · p(t − kT_b)`, `p` = unit rectangle of
-width `T_b = 1/R_b`, optionally smoothed by a documented shaping filter
-(e.g. Gaussian with specified 10–90 % rise time). Integer samples per symbol
-required. Units: V. Validation: levels, transition timing, rise time vs.
-analytic Gaussian-edge 10–90 % relation.
+1. `v(t) = V0 + (V1 − V0) Σ b_k p(t − kT_b)`, optionally convolved with a
+   unit-area Gaussian `h(t)`; `H(f) = exp(−2π²σ²f²)`, `σ = t_r / (2 Φ⁻¹(0.9))`.
+2. `V0, V1` [V], `T_b = 1/R_b` [s], `t_r` 10–90 % rise time [s], `sps` samples/bit.
+3. Ideal driver; Gaussian edge shape; pattern periodic in the window.
+4. `sps ≥ 2` (warning below 4).
+5. `np.repeat` then frequency-domain Gaussian filter (circular).
+6. Rectangular NRZ (`t_r = 0`) is not band-limited → aliasing warning.
+7. Agrawal, *Fiber-Optic Communication Systems*, ch. 1.
+8. `test_modulation.py`: exact levels/timing; measured 10–90 % rise time within
+   1 % of `t_r` (interpolation error < 0.1 dt at 256 sps); 50 % crossing at the
+   bit boundary.
 
-### 3.4 Mach-Zehnder modulator
+### 3.4 Mach-Zehnder modulator — `physics.modulation.mzm_field_transfer`
 
-Push-pull, dual-arm, chirp-free, with finite extinction ratio via arm
-power imbalance:
+1. `A_out = A_in sqrt(IL) [cos(Δφ/2) + i ε sin(Δφ/2)]`,
+   `Δφ = π (V + V_bias)/V_π + φ0`, `ε = 1/sqrt(ER)`;
+   `T = IL [cos²(Δφ/2) + ε² sin²(Δφ/2)]`.
+2. `V_π, V_bias` [V], `φ0` [rad], `IL` ∈ (0, 1] linear, `ER ≥ 1` linear.
+3. Push-pull, quasi-static (no electro-optic bandwidth), polarization-independent;
+   finite ER from arm amplitude imbalance, which gives residual chirp
+   `arctan(ε tan(Δφ/2))`.
+4. Any drive voltage; the transfer is periodic in `2V_π`.
+5. Pointwise closed form; output field = input field × transfer.
+6. No drive-bandwidth limit (model it with a filter on the drive), no
+   frequency-dependent V_π, no DC drift.
+7. Agrawal, *FOCS*, sec. 3.4; Saleh & Teich, ch. 21.
+8. `test_modulation.py`: sampled transfer and phase vs the closed form to
+   1e-12 for several (IL, ER, bias, φ0); `cos²` identity for ε = 0; periodicity;
+   `T_max/T_min = ER`; quadrature point `IL(1+1/ER)/2`; component delegates
+   exactly to the physics function (`test_link_components.py`).
 
-```
-A_out(t) = A_in(t) · sqrt(IL) · [ a1 · exp(+i Δφ/2) + a2 · exp(−i Δφ/2) ]
-Δφ(t)    = π (V(t) + V_bias) / V_π  + φ_0
-a1 = (1 + ε)/2,  a2 = (1 − ε)/2,     ε = 1/sqrt(ER)
-```
+### 3.5 Linear fiber — `physics.fiber.propagate_linear`
 
-Power transfer: `T = IL · [ cos²(Δφ/2) + ε² sin²(Δφ/2) ]`; maximum `IL`
-(Δφ = 0), minimum `IL · ε²`, so the extinction ratio is exactly `ER`.
-With `ε = 0`: `T = IL cos²(π (V + V_bias)/(2 V_π) + φ_0/2)` (ideal MZM).
-The imbalanced form introduces residual chirp: `angle(a1 e^{iΔφ/2} + a2 e^{-iΔφ/2}) = arctan(ε tan(Δφ/2))`;
-this is documented, not hidden. Symbols: `V_π` [V], `V_bias` [V], `IL` (linear power
-transmission ≤ 1, displayed in dB), `ER` (linear ≥ 1, displayed in dB), `φ_0` [rad].
-Validation: sampled transfer curve vs. the closed form; quadrature bias point
-`T = IL(1+ε²)/2`; ER measured = ER specified.
+1. `Ã(L,ω) = Ã(0,ω) e^{−αL/2} e^{−i(β2ω²/2 + β3ω³/6)L}`; `t0 → t0 + β1L`.
+2. `L` [m]; `α` [1/m] (from dB/km); `β1 = n_g/c` [s/m]; `β2 = −Dλ²/(2πc)` [s²/m];
+   `β3 = (λ/2πc)²(λ²S + 2λD)` [s³/m]; `D` [s/m²], `S` [s/m³] at the carrier λ.
+3. Linear, scalar (no PMD), single mode, frequency-flat loss, dispersion to 3rd order.
+4. Powers low enough that nonlinearity is negligible (not checked — Phase 4).
+5. Exact multiplication in the frequency domain (`numerics.fft`).
+6. Circular convolution: correct for patterns periodic in the window;
+   dispersive spread > 25 % of the window → warning `sampling.window_wraparound`.
+7. Agrawal, *Nonlinear Fiber Optics*, 6th ed., sec. 3.2–3.3 (signs converted).
+8. `test_fiber.py`: `P(L)/P(0) = e^{−αL}` to 1e-12 and 0.2 dB/km × L exactly;
+   energy conservation for α = 0; group delay in `t0`; complex Gaussian field
+   vs the analytic solution `sqrt(P0)T0/sqrt(T0²+iβ2L)·exp(−T²/(2(T0²+iβ2L)))`
+   to 1e-9 of the peak; RMS broadening `sqrt(1+(L/L_D)²)` to 1e-9; physical sign
+   check (anomalous dispersion: higher frequency arrives earlier, delay
+   `β2·2πΔf·L`); β3 group-delay curvature.
 
-### 3.5 Optical fiber (linear)
+### 3.6 PIN photodiode — `physics.detection`, `physics.noise`
 
-```
-Ã(L, ω) = Ã(0, ω) · exp(−α L / 2) · exp( −i (β2/2 ω² + β3/6 ω³) L )
-t0 → t0 + β1 L        (group delay, retarded frame)
-```
+1. `I = R P(t) + I_d + n_shot + n_th`; one-sided PSDs `2q(RP(t)+I_d)` and
+   `4k_B T/R_L`; per-sample variance `G fs/2`.
+2. `R` [A/W], `I_d` [A], `T` [K], `R_L` [Ω], `q`, `k_B` exact SI constants.
+3. Square law summed over polarizations; Gaussian shot noise using the
+   instantaneous noiseless current; white noise over the simulated band;
+   detector bandwidth modelled by the following filter.
+4. Gaussian approximation needs many photoelectrons per sample (`I dt/q ≫ 1`).
+5. Realized noise from the component's seeded generator (ADR-0008).
+6. No APD gain, saturation, frequency-dependent responsivity, or 1/f noise.
+7. Agrawal, *FOCS*, sec. 4.4; Saleh & Teich, sec. 19.5.
+8. `test_detection.py`: noiseless `I = RP + I_d` to 1e-14; dual-polarization
+   sum; shot and thermal variances and filtered variance `G·NEB` within 5
+   standard deviations of the sample-variance estimator; reproducibility.
 
-Symbols: `L` [m], `α` [1/m] (from dB/km), `β1 = n_g/c` [s/m], `β2` [s²/m]
-(from `D` [s/m²]: `β2 = −D λ²/(2π c)`), `β3` [s³/m] (from slope `S`).
-Assumptions: linear, single mode, scalar (no PMD), frequency-independent loss,
-no nonlinearity (SSFM in Phase 4).
-Validation:
-* attenuation `P(L) = P(0) exp(−α L)`;
-* unchirped Gaussian `|A(0,T)|² = P0 exp(−T²/T0²)` broadens as
-  `T1/T0 = sqrt(1 + (L/L_D)²)`, `L_D = T0²/|β2|`, peak power reduced by the same factor
-  (Agrawal, *Nonlinear Fiber Optics*, ch. 3);
-* energy conservation when α = 0; group-delay bookkeeping.
-Diagnostics: window wrap-around (§6 of numerical conventions).
+### 3.7 Electrical low-pass filters — `numerics.filters`
 
-### 3.6 PIN photodiode
+1. Gaussian `exp(−(ln2/2)(f/B)²)`; rectangular; Butterworth and Bessel-Thomson
+   analog prototypes `H(i2πf)` (scipy.signal), all with −3 dB bandwidth `B`.
+2. `B` [Hz], order `n`.
+3. Linear time-invariant; applied circularly.
+4. `B < fs/2` (warning otherwise).
+5. `H(f_k)` on the grid; Nyquist bin made real for even N.
+6. Causal filters delay the waveform (absorbed by decision timing).
+7. Oppenheim & Willsky; Thomson (1949).
+8. `test_filters.py`: `|H(0)| = 1`, `|H(B)| = 1/√2`, Hermitian symmetry;
+   Butterworth magnitude; Gaussian impulse response vs analytic to 1e-9;
+   NEB vs closed forms (Butterworth `B(π/2n)/sin(π/2n)`, Gaussian
+   `B sqrt(π/(4 ln2))`); Bessel group-delay flatness < 1 % to 0.5B.
 
-```
-I(t) = R · P(t) + I_d + n_shot(t) + n_th(t)
-one-sided PSDs:  G_shot = 2 q (R P̄ + I_d)  [A²/Hz]   (evaluated per sample with P(t) in Phase 2+)
-                 G_th   = 4 k_B T_K / R_L      [A²/Hz]
-```
+### 3.8 Decision circuit and BER — `analysis.decision`, `analysis.ber`
 
-Symbols: `R` [A/W], `I_d` [A], `q` [C], `k_B` [J/K], `T_K` [K], `R_L` [Ω].
-Realized noise with per-sample variance `G fs / 2` (numerical conventions §4);
-the receiver filter sets the effective noise bandwidth.
-Assumptions: square-law detection summed over polarizations, flat responsivity,
-Gaussian approximation of shot noise (valid for many photoelectrons per sample).
-Detector bandwidth is modelled by the following electrical filter.
-Validation: noiseless mean `I = R P + I_d`; noise variance after an ideal
-filter of bandwidth B equals `(G_shot + G_th) B` within statistical tolerance
-set from the chi-square distribution of the sample variance.
+1. Decision samples `x[k·sps + offset]`, bit = `x > threshold`;
+   `BER = N_err/N_bits` after circular alignment (FFT cross-correlation);
+   Clopper–Pearson 95 % interval; Gaussian reference
+   `p_k = ½ erfc(|m_k − th|/(√2 σ))`, `BER = ½ erfc(Q/√2)`.
+2. Offset in samples, threshold in A or V, counts dimensionless.
+3. Timing: max-variance (data-independent) or fixed phase; threshold: mean or fixed.
+4. Alignment reliable for BER ≪ 0.5 (warning above 0.1).
+5. Vectorized.
+6. No clock jitter, no adaptive threshold; with `N_err = 0` only an upper
+   bound can be stated (reported).
+7. Agrawal, *FOCS*, sec. 4.5; Proakis & Salehi.
+8. `test_ber.py`: injected errors counted exactly; alignment recovers circular
+   shifts; confidence limits; Q reference values. `test_link_ber.py`: counted
+   errors of the complete thermal-noise-limited link agree with the exact
+   Gaussian expectation (from the noiseless run, including ISI) within
+   5 Poisson standard deviations at BER ≈ 1.4e-3…9e-3 (observed: 45 vs 47.3,
+   118 vs 123.5, 303 vs 297.1).
 
-### 3.7 Electrical low-pass filters
+### 3.9 Measurements — `analysis.power`, `analysis.spectrum`, `analysis.eye`
 
-Planned: Bessel-Thomson (order n, 3-dB bandwidth), Butterworth, Gaussian,
-ideal rectangular, raised cosine. Implemented as frequency responses on the
-grid (`numerics.fft.apply_transfer_function`); analog prototypes from
-`scipy.signal` evaluated with `freqs`, normalized to the specified −3 dB
-bandwidth. Validation: |H| at DC = 1 and at f_3dB = 1/√2; Gaussian impulse
-response vs. analytic; group delay of Bessel flat within spec; noise-equivalent
-bandwidth vs. analytic.
-
-### 3.8 Decision circuit and BER
-
-Sample at `t_s = t_0 + (k + φ_s) T_b`, compare with threshold `V_th`, count
-mismatches against the reference sequence after deterministic delay alignment
-(cross-correlation, reported). BER = `N_err / N_bits`; report N_bits, N_err
-and the 95 % upper bound when N_err = 0 (≈ 3/N_bits).
-Reference: Gaussian-noise OOK with levels `μ1, μ0`, std `σ1, σ0`:
-`Q = (μ1 − μ0)/(σ1 + σ0)`, `BER = ½ erfc(Q/√2)` at optimum threshold
-(Agrawal, *Fiber-Optic Communication Systems*, ch. 4).
-Validation: deterministic injected-error count; Monte Carlo AWGN BER within
-binomial confidence of the analytic value.
+* Power: `P_avg = mean Σ_p|A_p|²`, `P_peak = max`.
+* Spectrum: `S_k = |X_k|²/T` summed over polarizations, `ν = f_ref + f_k`,
+  `λ = c/ν`, power per rectangular RBW; Parseval `Σ S df = P_avg`.
+* Eye: traces of `n` bit periods at the simulated samples (no interpolation),
+  centred on the max-variance instant; decision-directed Q and eye opening are
+  labelled as such.
+* Validation: `tests/unit/test_analysis.py`, `test_sources.py`,
+  `tests/integration/test_optical_link.py` (TX spectrum total = TX power;
+  RX/TX power ratio = `e^{−αL}`).
 
 ## 4. References
 
@@ -158,6 +194,8 @@ binomial confidence of the analytic value.
 * G. P. Agrawal, *Fiber-Optic Communication Systems*, 5th ed., Wiley, 2021.
 * B. E. A. Saleh, M. C. Teich, *Fundamentals of Photonics*, 3rd ed., Wiley, 2019.
 * J. G. Proakis, M. Salehi, *Digital Communications*, 5th ed., McGraw-Hill, 2008.
-* ITU-T Rec. O.150, *General requirements for instrumentation for performance measurements on digital transmission equipment*.
-* ITU-T Rec. G.652, *Characteristics of a single-mode optical fibre and cable*.
+* A. V. Oppenheim, A. S. Willsky, *Signals and Systems*, 2nd ed., Prentice Hall, 1997.
+* W. E. Thomson, "Delay networks having maximally flat frequency characteristics," *Proc. IEE* 96 (1949).
+* S. W. Golomb, *Shift Register Sequences*, rev. ed., Aegean Park Press, 1982.
+* ITU-T Rec. O.150; ITU-T Rec. G.652.
 * E. Tiesinga et al., "CODATA recommended values of the fundamental physical constants: 2018," *Rev. Mod. Phys.* 93, 025010 (2021).

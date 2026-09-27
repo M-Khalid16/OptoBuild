@@ -21,3 +21,4 @@ nav:
       - ADR-0007 Numerical backend: decisions/0007-numerical-backend.md
       - ADR-0008 Reproducible randomness: decisions/0008-reproducible-randomness.md
       - ADR-0009 Validation and results: decisions/0009-construction-validation-and-results.md
+      - ADR-0010 Grids and bit timing: decisions/0010-sampling-grid-and-bit-timing.md
