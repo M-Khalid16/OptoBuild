@@ -94,6 +94,9 @@ class Component(ABC):
     input_ports: ClassVar[tuple[PortSpec, ...]] = ()
     output_ports: ClassVar[tuple[PortSpec, ...]] = ()
     parameter_specs: ClassVar[tuple[ParameterSpec, ...]] = ()
+    stochastic: ClassVar[bool] = False
+    """True if ``run`` draws from ``context.rng`` (ADR-0012). Only stochastic
+    components may use the generator; the engine enforces this."""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)

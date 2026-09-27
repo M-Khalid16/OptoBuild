@@ -73,6 +73,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", help="run a project file (.json/.yaml)")
     p_run.add_argument("project")
     p_run.add_argument("--seed", type=int, default=None, help="override the project seed")
+    p_ber = sub.add_parser("ber", help="accumulate BER over Monte Carlo noise trials")
+    p_ber.add_argument("project", help="project file, or demo:<name> for a built-in demo")
+    p_ber.add_argument("--trials", type=int, default=10)
+    p_ber.add_argument("--node", default="ber", help="name of the BER analyzer node")
+    p_ber.add_argument("--seed", type=int, default=None, help="override the project seed")
     for p in (p_demo, p_run):
         p.add_argument(
             "--save-results",
@@ -89,6 +94,29 @@ def _report(project: Project, args: argparse.Namespace) -> None:
         from optobuild.persistence.results import save_results
 
         print(f"saved results to {save_results(result, args.save_results, project=project)}")
+
+
+def _ber(args: argparse.Namespace) -> int:
+    from optobuild.sweeps.monte_carlo import monte_carlo_ber
+
+    if args.project.startswith("demo:"):
+        name = args.project[5:]
+        if name not in DEMOS:
+            print(f"error: unknown demo {name!r}; choose from {sorted(DEMOS)}", file=sys.stderr)
+            return 2
+        project = DEMOS[name]()
+    else:
+        project = load_project(args.project)
+
+    def show(trial: int, n_err: int, n_bits: int) -> None:
+        print(f"trial {trial:4d}: {n_err} errors / {n_bits} bits")
+
+    mc = monte_carlo_ber(project, args.trials, ber_node=args.node, seed=args.seed, on_trial=show)
+    print(
+        f"total: {mc.n_errors} errors / {mc.n_bits} bits, BER = {mc.ber:.3e}, "
+        f"95% CI [{mc.ber_lower_95:.2e}, {mc.ber_upper_95:.2e}]"
+    )
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -111,6 +139,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "run":
             _report(load_project(args.project), args)
             return 0
+        if args.command == "ber":
+            return _ber(args)
     except OptoBuildError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

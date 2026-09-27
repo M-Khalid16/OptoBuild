@@ -91,6 +91,7 @@ class GaussianNoise(Component):
     version = "1.0.0"
     display_name = "Gaussian noise (reference)"
     category = ComponentCategory.ELECTRICAL
+    stochastic = True
     input_ports = (PortSpec("in", _E),)
     output_ports = (PortSpec("out", _E),)
     parameter_specs = (

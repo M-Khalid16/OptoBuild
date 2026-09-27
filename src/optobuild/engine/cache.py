@@ -1,7 +1,8 @@
 """Result cache keyed by a content hash of each node's computation (ADR-0005).
 
-A node's key hashes (type_id, version, name, canonical parameters, root seed,
-layout, trial index, and the keys of the upstream outputs it consumes). Because components are
+A node's key hashes (type_id, version, name, canonical parameters, layout,
+the keys of the upstream outputs it consumes and - for stochastic components
+only - the root seed and trial index). Because components are
 deterministic functions of exactly these inputs, an unchanged key implies an
 unchanged result; changing a parameter changes the key of that node and of
 everything downstream, which is the invalidation rule.
@@ -29,18 +30,22 @@ def node_key(
 ) -> str:
     """Hash identifying one node computation; ``inputs`` maps port -> (upstream key, port).
 
-    The layout and trial index are part of every key: any component may read
-    the layout, and the trial selects the random realization.
+    The layout is part of every key (any component may read it). The root seed
+    and trial index enter only the keys of *stochastic* components (ADR-0012);
+    downstream nodes inherit the dependence through their input keys, so
+    deterministic parts of a graph (e.g. the transmitter) are reused across
+    seeds and Monte Carlo trials.
     """
+    stochastic = bool(getattr(component, "stochastic", False))
     payload = {
         "type_id": component.type_id,
         "version": component.version,
         "name": component.name,
         "parameters": dict(component.parameters),
-        "seed": root_seed,
+        "seed": root_seed if stochastic else None,
         "inputs": {k: list(v) for k, v in sorted(inputs.items())},
         "layout": None if layout is None else layout.to_dict(),
-        "trial": trial,
+        "trial": trial if stochastic else None,
     }
     text = json.dumps(payload, sort_keys=True, default=repr, allow_nan=False)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()

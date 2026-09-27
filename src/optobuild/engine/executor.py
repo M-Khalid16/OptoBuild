@@ -196,7 +196,13 @@ class FeedForwardExecutor:
                 )
 
         ctx = ExecutionContext(
-            comp.name, root_seed, cancel=cancel, progress=sub_progress, layout=layout, trial=trial
+            comp.name,
+            root_seed,
+            stochastic=bool(getattr(comp, "stochastic", False)),
+            cancel=cancel,
+            progress=sub_progress,
+            layout=layout,
+            trial=trial,
         )
         start = time.perf_counter()
         try:

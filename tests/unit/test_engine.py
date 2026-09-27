@@ -153,9 +153,54 @@ def test_cache_hits_and_downstream_invalidation() -> None:
     hits = {name: n.cache_hit for name, n in third.nodes.items()}
     assert hits == {"src": True, "g0": True, "g1": False, "g2": False, "rec": False}
     np.testing.assert_array_equal(third.result("rec", "samples"), 12.0 * np.arange(8))
-    # a different seed invalidates everything (seed is part of every key)
+    # a deterministic graph does not depend on the seed: everything is reused (ADR-0012)
     fourth = ex.run(g, seed=2)
-    assert not any(n.cache_hit for n in fourth.nodes.values())
+    assert all(n.cache_hit for n in fourth.nodes.values())
+
+
+def test_seed_and_trial_invalidate_exactly_the_stochastic_part() -> None:
+    g = _chain(1)
+    g.remove("rec")
+    g.add(GaussianNoise("noise", {"sigma": 1.0}))
+    g.add(Gain("after", {"gain": 1.0}))
+    g.add(Recorder("rec"))
+    g.connect("g0", "out", "noise", "in")
+    g.connect("noise", "out", "after", "in")
+    g.connect("after", "out", "rec", "in")
+    ex = FeedForwardExecutor(ResultCache())
+    base = ex.run(g, seed=1)
+    for kwargs in ({"seed": 2}, {"seed": 1, "trial": 0}, {"seed": 1, "trial": 1}):
+        res = ex.run(g, **kwargs)
+        hits = {n: r.cache_hit for n, r in res.nodes.items()}
+        assert hits == {"src": True, "g0": True, "noise": False, "after": False, "rec": False}
+        assert not np.array_equal(res.result("rec", "samples"), base.result("rec", "samples"))
+    again = ex.run(g, seed=1, trial=1)
+    assert all(r.cache_hit for r in again.nodes.values())
+
+
+class _SneakyRandom(Gain):
+    """Uses the generator without declaring stochastic = True (a component bug)."""
+
+    type_id = "tests.sneaky"
+
+    def run(self, inputs, context):  # type: ignore[no-untyped-def]
+        context.rng.normal()
+        return super().run(inputs, context)
+
+
+def test_undeclared_rng_use_is_caught() -> None:
+    g = _chain(0)
+    g.remove("rec")
+    g.add(_SneakyRandom("sneaky"))
+    g.connect("src", "out", "sneaky", "in")
+    with pytest.raises(ComponentExecutionError, match="does not declare"):
+        FeedForwardExecutor().run(g)
+
+
+def test_invalid_trial_rejected() -> None:
+    for bad in (-1, 1.5, True):
+        with pytest.raises(ValueError, match="trial"):
+            FeedForwardExecutor().run(_chain(0), trial=bad)
 
 
 def test_cache_is_bounded() -> None:

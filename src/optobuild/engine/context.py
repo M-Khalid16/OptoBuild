@@ -65,6 +65,7 @@ class ExecutionContext:
         component_name: str,
         root_seed: int,
         *,
+        stochastic: bool = True,
         cancel: CancellationToken | None = None,
         progress: Callable[[float, str], None] | None = None,
         layout: SimulationLayout | None = None,
@@ -74,6 +75,7 @@ class ExecutionContext:
         self._seed = root_seed
         self._layout = layout
         self._trial = trial
+        self._stochastic = stochastic
         self._rng: np.random.Generator | None = None
         self._cancel = cancel
         self._progress = progress
@@ -84,6 +86,11 @@ class ExecutionContext:
     def rng(self) -> np.random.Generator:
         """Generator from (root seed, component name[, trial]); created on first use."""
         if self._rng is None:
+            if not self._stochastic:
+                raise RuntimeError(
+                    f"Component '{self._name}' uses context.rng but does not declare "
+                    "stochastic = True; its cached results would ignore the seed (ADR-0012)."
+                )
             extra = () if self._trial is None else (self._trial,)
             self._rng = component_generator(self._seed, self._name, *extra)
         return self._rng

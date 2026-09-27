@@ -18,6 +18,7 @@ class PINPhotodiode(Component):
     version = "1.0.0"
     display_name = "PIN photodiode"
     category = ComponentCategory.DETECTOR
+    stochastic = True
     input_ports = (PortSpec("in", SignalKind.OPTICAL),)
     output_ports = (PortSpec("out", SignalKind.ELECTRICAL, "photocurrent [A]"),)
     parameter_specs = (

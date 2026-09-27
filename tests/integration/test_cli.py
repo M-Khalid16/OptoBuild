@@ -45,3 +45,10 @@ def test_console_script_and_module_entry_points() -> None:
         check=True,
     )
     assert "clean.mean = 25" in res.stdout
+
+
+def test_ber_command(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["ber", "demo:reference_nope"]) == 2
+    assert main(["ber", "demo:optical_link", "--trials", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "trial    1:" in out and "total:" in out and "4094 bits" in out
