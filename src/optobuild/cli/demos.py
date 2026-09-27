@@ -134,4 +134,68 @@ def optical_link_project(
 
 DEMOS["optical_link"] = optical_link_project
 
-__all__ = ["DEMOS", "optical_link_project", "reference_project"]
+
+def soliton_project(
+    seed: int = 0, *, soliton_order: float = 1.0, length_in_ld: float = 5.0
+) -> Project:
+    """Sech pulse in anomalous-dispersion fiber (Phase 4)::
+
+        pulse (sech, T0 = 5 ps, P0 = N^2 |beta2| / (gamma T0^2)) -> nonlinear fiber (lossless)
+        taps: input/output spectra and power meters
+
+    N = 1 propagates unchanged (fundamental soliton); N = 2 breathes with
+    period (pi/2) L_D. Standard SMF at 1550 nm: D = 17 ps/(nm km),
+    gamma = 1.3 /(W km). The fiber also applies the third-order dispersion
+    implied by D at 1550 nm (beta3 = 0.036 ps^3/km even with zero slope),
+    which perturbs the soliton by about L / (T0^3/|beta3|) ~ 1e-3.
+    """
+    from optobuild.components.analyzers import OpticalPowerMeter, OpticalSpectrumAnalyzer
+    from optobuild.components.nonlinear import NonlinearFiber, OpticalPulseSource
+    from optobuild.core.units import dispersion_to_beta2
+
+    t0, gamma, d = 5e-12, 1.3e-3, 17e-6
+    beta2 = dispersion_to_beta2(d, 1550e-9)
+    p0 = soliton_order**2 * abs(beta2) / (gamma * t0**2)
+    ld = t0**2 / abs(beta2)
+    g = SimulationGraph()
+    g.add(
+        OpticalPulseSource(
+            "pulse",
+            {
+                "shape": "sech",
+                "peak_power": p0,
+                "width": t0,
+                "n_samples": 4096,
+                "sample_rate": 4096 / (80 * t0),
+            },
+        )
+    )
+    g.add(
+        NonlinearFiber(
+            "fiber",
+            {
+                "length": length_in_ld * ld,
+                "attenuation": 0.0,
+                "dispersion": d,
+                "gamma": gamma,
+                "max_phase": 1e-3,
+                "max_step": ld / 20,
+            },
+        )
+    )
+    g.add(OpticalSpectrumAnalyzer("input_spectrum", {"resolution_bandwidth": 0.0}))
+    g.add(OpticalSpectrumAnalyzer("output_spectrum", {"resolution_bandwidth": 0.0}))
+    g.add(OpticalPowerMeter("input_power"))
+    g.add(OpticalPowerMeter("output_power"))
+    g.connect("pulse", "out", "fiber", "in")
+    g.connect("pulse", "out", "input_spectrum", "in")
+    g.connect("pulse", "out", "input_power", "in")
+    g.connect("fiber", "out", "output_spectrum", "in")
+    g.connect("fiber", "out", "output_power", "in")
+    title = f"Order-{soliton_order:g} soliton over {length_in_ld:g} dispersion lengths"
+    return Project(graph=g, seed=seed, metadata={"title": title})
+
+
+DEMOS["soliton"] = soliton_project
+
+__all__ = ["DEMOS", "optical_link_project", "reference_project", "soliton_project"]

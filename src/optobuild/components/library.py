@@ -13,6 +13,7 @@ from optobuild.components.detectors import PINPhotodiode
 from optobuild.components.electrical import DecisionCircuit, LowPassFilter
 from optobuild.components.fiber import LinearFiber
 from optobuild.components.modulators import MachZehnderModulator, NRZGenerator
+from optobuild.components.nonlinear import NonlinearFiber, OpticalPulseSource
 from optobuild.components.reference import REFERENCE_COMPONENTS
 from optobuild.components.sources import CWLaser, PRBSGenerator
 
@@ -31,9 +32,12 @@ OPTICAL_LINK_COMPONENTS: tuple[type[Component], ...] = (
     EyeDiagramAnalyzer,
 )
 
+NONLINEAR_COMPONENTS: tuple[type[Component], ...] = (OpticalPulseSource, NonlinearFiber)
+
 BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *REFERENCE_COMPONENTS,
     *OPTICAL_LINK_COMPONENTS,
+    *NONLINEAR_COMPONENTS,
 )
 
-__all__ = ["BUILTIN_COMPONENTS", "OPTICAL_LINK_COMPONENTS"]
+__all__ = ["BUILTIN_COMPONENTS", "NONLINEAR_COMPONENTS", "OPTICAL_LINK_COMPONENTS"]
