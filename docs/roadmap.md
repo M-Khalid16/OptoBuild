@@ -61,6 +61,15 @@ Status: complete (v0.2.0). Example: `examples/optical_link.py`,
 [physics_models.md](physics_models.md) §3. Deferred: global layout
 parameters (ADR-0010), tracked-noise representation, HDF5 results.
 
+## Phase 2.1 — Link hardening ✅
+
+* Global simulation layout, project schema v2 with v1 migration (ADR-0011).
+* HDF5 result storage with embedded project provenance (`--save-results`).
+* Stochastic-component declaration, seed/trial-aware caching and Monte
+  Carlo BER accumulation (`optobuild ber`) (ADR-0012).
+
+Status: complete (v0.3.0).
+
 ## Later phases
 
 | Phase | Topic |

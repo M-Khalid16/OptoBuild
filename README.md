@@ -33,7 +33,14 @@ optobuild components                      # list components
 optobuild demo optical_link               # run the reference 10 Gb/s link
 python examples/optical_link.py           # same, with a readable report + data export
 optobuild run examples/optical_link.json  # run a saved project
+optobuild run examples/optical_link.json --save-results out.h5   # HDF5 (needs h5py)
+optobuild ber demo:optical_link --trials 20                      # Monte Carlo BER
 ```
+
+Since v0.3.0: a global simulation layout (bit rate, pattern length, samples
+per bit) drives all sources, results can be stored in HDF5 together with the
+project that produced them, and BER can be accumulated over independent noise
+trials with exact confidence intervals.
 
 ## Tests
 

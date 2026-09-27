@@ -91,7 +91,8 @@ are **not** expressed as graph cycles in the feed-forward executor (ADR-0005).
 
 | Member | Purpose |
 |---|---|
-| `rng` | `numpy.random.Generator` private to this component instance, derived from the project seed (ADR-0008) |
+| `rng` | `numpy.random.Generator` private to this component instance, derived from (project seed, name[, trial]) (ADR-0008); **only for components declaring `stochastic = True`** (ADR-0012) |
+| `layout` | the run's `SimulationLayout` (bit rate, bits, samples per bit) or `None` (ADR-0011) |
 | `logger` | `logging.Logger` named `optobuild.run.<component name>` |
 | `check_cancelled()` | raises `SimulationCancelledError`; long loops call it periodically |
 | `report_progress(fraction, message)` | progress in [0, 1] |
@@ -99,7 +100,14 @@ are **not** expressed as graph cycles in the feed-forward executor (ADR-0005).
 | `warn(diagnostic)` | attach a run-time `Diagnostic` (e.g. aliasing risk) to the node's results |
 
 Components must not create their own generators, read global state, or
-perform I/O other than logging.
+perform I/O other than logging. A component that draws random numbers sets
+the class attribute `stochastic = True`; the engine refuses `rng` access
+otherwise, because only stochastic components have the seed and trial in
+their cache keys.
+
+Source components that can follow the global layout declare the shared
+parameter `TIMING_SOURCE_SPEC` (`timing_source` = `parameters` | `layout`) and
+obtain the layout with `require_layout(context, name)`.
 
 ## 5. Errors and diagnostics
 

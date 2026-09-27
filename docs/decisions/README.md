@@ -17,5 +17,6 @@ new ADR that *supersedes* the old one.
 | [0009](0009-construction-validation-and-results.md) | Construction-time validation and recorded results (amends 0004) | Accepted |
 | [0010](0010-sampling-grid-and-bit-timing.md) | Per-source sampling grids and bit-timing metadata | Partly superseded by 0011 |
 | [0011](0011-global-simulation-layout.md) | Global simulation layout (project schema v2) | Accepted |
+| [0012](0012-stochastic-components-and-trials.md) | Stochastic components and Monte Carlo trials | Accepted |
 
 Template: [template.md](template.md).

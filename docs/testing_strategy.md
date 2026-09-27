@@ -55,6 +55,8 @@ cannot pass unnoticed.
 | BER counting | injected errors | ✅ `test_ber.py` |
 | BER vs. Gaussian theory (whole link, incl. ISI) | `Σ ½ erfc(abs(m_k−th)/(√2σ))` | ✅ `test_link_ber.py` |
 | Reproducibility | identical seeds ⇒ identical arrays; different component names ⇒ independent streams | ✅ `tests/integration/test_reproducibility.py`, `test_optical_link.py` |
+| Monte Carlo BER (independent trials) | `n_trials × Σ ½ erfc(…)` | ✅ `test_monte_carlo_ber.py` |
+| HDF5 results round trip | bit-exact signals and results | ✅ `tests/integration/test_results_hdf5.py` |
 
 ## 4. Commands
 
