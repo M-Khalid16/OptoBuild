@@ -166,6 +166,11 @@ for _p in ("", "k", "M", "G", "T"):
 _add(_scale("1", "dimensionless", 1.0), "")
 _add(_scale("rad", "angle", 1.0))
 _add(_scale("deg", "angle", math.pi / 180.0))
+_add(_scale("mrad", "angle", 1e-3))
+_add(_scale("urad", "angle", 1e-6), "µrad")
+_add(_scale("m/s", "rain_rate", 1.0))
+_add(_scale("mm/h", "rain_rate", 1e-3 / 3600.0))
+_add(_scale("m^-2/3", "refractive_structure", 1.0))
 _add(_scale("K", "temperature", 1.0))
 _add(_scale("ohm", "resistance", 1.0), "Ω", "Ohm")
 _add(_scale("kohm", "resistance", 1e3), "kΩ")
@@ -262,7 +267,12 @@ def parse_quantity(text: str) -> tuple[float, str]:
 
 def parse_to_si(text: str, *, expect: str | None = None) -> float:
     """Parse ``"<number> <unit>"`` and return the SI value (dimension-checked)."""
-    value, unit = parse_quantity(text)
+    try:
+        value, unit = parse_quantity(text)
+    except UnitError as exc:
+        if expect is None:
+            raise
+        raise UnitError(exc.message, hint=f"Use one of: {', '.join(known_units(expect))}") from None
     return float(to_si(value, unit, expect=expect))
 
 
