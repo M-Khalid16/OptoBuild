@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "optobuild"
+version = "0.0.1"
+description = "Scientifically validated optical and photonics simulation platform (foundation phase)."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Mamoona Khalid" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Intended Audience :: Science/Research",
+]
+
+[project.optional-dependencies]
+# Project metadata in YAML (JSON needs no extra dependency).
+yaml = ["pyyaml>=6.0"]
+# Large numerical results (HDF5). Introduced with persistence of results.
+hdf5 = ["h5py>=3.8"]
+# Publication-quality plots (examples / reporting only; never required by the engine).
+plot = ["matplotlib>=3.7"]
+# GUI (Phase 3). The engine must never import these.
+gui = ["PySide6>=6.5", "pyqtgraph>=0.13"]
+docs = ["mkdocs>=1.5"]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "unit: isolated tests of one function/class (auto-applied under tests/unit)",
+    "integration: tests of connected subsystems (auto-applied under tests/integration)",
+    "validation: comparison against analytical/reference solutions (auto-applied under tests/validation)",
+    "regression: protection of previously validated behaviour (auto-applied under tests/regression)",
+    "slow: long-running test; deselect with -m 'not slow'",
+]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "NPY", "S307"]
