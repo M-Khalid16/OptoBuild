@@ -4,7 +4,11 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 4 complete (v0.5.0)** — nonlinear fiber propagation
+**Current status: Phase 5 complete (v0.6.0)** — free-space optical links:
+Gaussian-beam geometry and pointing, fog/haze/rain attenuation, log-normal
+and Gamma-Gamma turbulence, beam wander, outage and link budget
+(`optobuild fso-budget --distance '2 km' --visibility '5 km' ...`,
+`optobuild demo fso_link`, `examples/fso_link.py`). Phase 4 (v0.5.0) added nonlinear fiber propagation
 (split-step Fourier NLSE with loss, β2, β3 and Kerr SPM), validated against
 exact SPM, fundamental and second-order soliton solutions (`optobuild demo
 soliton`, `examples/soliton.py`). Phase 3 (v0.4.0) added the GUI on top of the
@@ -55,6 +59,7 @@ python examples/optical_link.py           # same, with a readable report + data 
 optobuild run examples/optical_link.json  # run a saved project
 optobuild run examples/optical_link.json --save-results out.h5   # HDF5 (needs h5py)
 optobuild ber demo:optical_link --trials 20                      # Monte Carlo BER
+optobuild fso-budget --distance "2 km" --visibility "5 km" --turbulence gamma_gamma --cn2 1e-14
 ```
 
 Since v0.3.0: a global simulation layout (bit rate, pattern length, samples

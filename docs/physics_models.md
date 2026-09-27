@@ -1,6 +1,6 @@
 # Physics models
 
-Status: **Phase 2 and Phase 4 models implemented and validated** (v0.5.0). Later-phase
+Status: **Phase 2, 4 and 5 models implemented and validated** (v0.6.0). Later-phase
 models are listed in §2 as *not started*; nothing here describes code that
 does not exist.
 
@@ -38,7 +38,10 @@ Every implemented model has:
 | Optical power, spectrum, eye data | 2 | ✅ validated | `analysis.power/spectrum/eye` | `optobuild.analyzer.*` |
 | Optical pulse source (Gaussian, sech) | 4 | ✅ validated | `physics.sources` | `optobuild.source.optical_pulse` |
 | Nonlinear fiber: NLSE (SPM, β2, β3, loss), SSFM | 4 | ✅ validated | `physics.nonlinear`, `solvers.ssfm` | `optobuild.channel.nonlinear_fiber` |
-| Atmospheric channel, turbulence | 5 | not started | — | — |
+| FSO geometry, pointing, beam wander | 5 | ✅ validated | `physics.free_space` | `optobuild.channel.fso` |
+| Atmospheric attenuation (Kim/Kruse, rain) | 5 | ✅ validated | `physics.atmospheric` | `optobuild.channel.fso` |
+| Turbulence (Rytov, log-normal, Gamma-Gamma) | 5 | ✅ validated | `physics.turbulence` | `optobuild.channel.fso` |
+| FSO channel gain, outage, link budget | 5 | ✅ validated | `physics.fso_channel`, `analysis.link_budget` | `optobuild.channel.fso`, `optobuild fso-budget` |
 | Coherent receiver / DSP | 6 | not started | — | — |
 | Photonic circuit elements | 7 | not started | — | — |
 | Laser rate equations, fiber lasers | 8 | not started | — | — |
@@ -226,6 +229,69 @@ Gaussian `sqrt(P0) exp(−(t−tc)²/(2T0²))` or sech `sqrt(P0) sech((t−tc)/T
 centred in the window, unchirped. Energies `P0 T0 √π` and `2 P0 T0` are
 verified numerically. Diagnostics: fewer than 3 samples per T0, pulse energy
 at the window edges.
+
+### 3.12 FSO geometry and pointing — `physics.free_space`
+
+1. `w(L)² = w0² + (θL)²`, `θ_dl = λ/(πw0)`; collected fraction of a spot
+   displaced by r: `h_p(r) = F_ncx2((a/σ)²; 2, (r/σ)²)`, `σ = w/2`
+   (`= 1 − exp(−2a²/w²)` at r = 0); displacement Rice-distributed
+   (static offset + Gaussian jitter/wander); beam wander
+   `<r_c²> = 2.42 Cn² L³ w0^{−1/3}`.
+2. w0, w, a, r [m]; θ [rad]; Cn² [m^−2/3].
+3. Gaussian beam, paraxial, far field; aperture in the transverse plane;
+   independent Gaussian jitter and wander.
+4. Horizontal links, weak-turbulence wander formula (collimated beam, infinite outer scale).
+5. Exact CDF (`scipy.special.chndtr`); means by 400-point Gauss–Legendre
+   quadrature over the Rice density.
+6. No angle-of-arrival, obscuration or focusing optics.
+7. Farid & Hranilovic, JLT 25, 1702 (2007); Andrews & Phillips (2005) ch. 6;
+   Kaushal & Kaddoum, IEEE COMST 19, 57 (2017).
+8. `tests/validation/test_fso_physics.py`: Gaussian-beam formula (1e-12);
+   r = 0 closed form (1e-12); offset fraction vs independent 2-D quadrature
+   (1e-8); small/large-aperture limits; Farid–Hranilovic mean for a ≪ w (0.2 %).
+
+### 3.13 Atmospheric attenuation — `physics.atmospheric`
+
+1. `β = (3.912/V)(λ/550 nm)^{−q}` [1/m] with Kim or Kruse q(V);
+   rain `1.076 R^{0.67}` dB/km (R in mm/h).
+2. V [m] (display km), λ [m], R [m/s] (display mm/h).
+3. Empirical fits; homogeneous path.
+4. 0.5–2 µm; V from ~50 m to > 50 km; several dB/km uncertainty in dense fog.
+5. Closed form.
+6. No snow, no specific aerosol models, no absorption lines.
+7. Kim et al., Proc. SPIE 4214 (2001); Kruse et al. (1962); Kaushal & Kaddoum (2017).
+8. Koschmieder definition (2 % at 550 nm over V, exact); q regimes;
+   V = 1 km at 1550 nm → 10.12 dB/km; dense fog wavelength-independent; rain formula.
+
+### 3.14 Turbulence — `physics.turbulence`
+
+1. `σ_R² = 1.23 Cn² k^{7/6} L^{11/6}`; log-normal `ln h ~ N(−s²/2, s²)`,
+   `s² = ln(1+σ_I²)`; Gamma-Gamma with Al-Habash α, β and
+   `σ_I² = 1/α + 1/β + 1/(αβ)`; aperture averaging `[1 + 1.062 kD²/(4L)]^{−7/6}`.
+2. Cn² [m^−2/3], k [1/m], L [m], D [m]; h dimensionless, E[h] = 1.
+3. Kolmogorov spectrum, constant Cn², plane wave, point receiver (GG).
+4. Log-normal: σ_R² ≲ 1 (warning otherwise); GG: weak to strong.
+5. GG sampling as product of unit-mean gammas; GG CDF by quantile
+   quadrature (vectorized).
+6. No inner/outer scale, no aperture averaging for GG, no temporal model.
+7. Andrews & Phillips (2005) ch. 8–11; Al-Habash, Andrews & Phillips, Opt. Eng. 40, 1554 (2001).
+8. Rytov scaling laws; aperture-averaging limits; GG pdf normalization,
+   mean and second moment by independent quadrature (≤ 1e-7); CDF vs
+   integrated pdf; weak-turbulence limit; samplers vs CDFs (5σ binomial).
+
+### 3.15 FSO channel and link budget — `physics.fso_channel`, `analysis.link_budget`
+
+1. `h = η_tx η_rx e^{−βL} h_p(r) h_t`; `P_out = P(h < h_th)`;
+   margin `= P_rx,mean − S` [dB].
+2. η linear; β [1/m]; powers [W]/[dBm].
+3. Quasi-static channel (one state per trial); power-only (IM/DD).
+4. Horizontal links; window ≪ coherence time (warning above 100 µs).
+5. Outage: exact Rice survival without turbulence; otherwise quadrature over r.
+6. See ADR-0015.
+7. As above.
+8. Mean gain and outage vs 3×10⁵ Monte Carlo samples for four channel
+   configurations (5σ); component trial gains vs analytic mean/outage over
+   3000 engine trials (`tests/integration/test_fso_component.py`).
 
 ## 4. References
 

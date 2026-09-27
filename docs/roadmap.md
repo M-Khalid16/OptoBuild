@@ -103,11 +103,24 @@ Status: complete (v0.4.0). ADR-0013. Screenshot: `docs/images/gui_optical_link.p
 Status: complete (v0.5.0). Deferred to Phase 9: Raman, self-steepening,
 vector/multichannel propagation, higher-order adaptive schemes.
 
+## Phase 5 — FSO channel and link budget ✅
+
+* Gaussian-beam geometry, exact aperture collection with static and random
+  pointing (Rice), beam wander; Kim/Kruse visibility and rain attenuation;
+  Rytov variance, log-normal and Gamma-Gamma fading, aperture averaging.
+* `FSOChannel` component (quasi-static, one state per Monte Carlo trial),
+  analytic mean gain, outage probability, link budget and margin
+  (`optobuild fso-budget`), FSO link demo and example (ADR-0015).
+* Validation against closed forms, independent quadrature, the Koschmieder
+  definition, Farid–Hranilovic, moment integrals and Monte Carlo.
+
+Status: complete (v0.6.0). Deferred: phase screens / coherent FSO, temporal
+fading, slant paths with Cn²(h), snow, angle-of-arrival.
+
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 5 | FSO channel and link-budget analysis |
 | 6 | Coherent optical communication (dual-pol, DSP, EVM, constellations, OSNR) |
 | 7 | Photonic circuit simulation (transfer/S-matrix) |
 | 8 | CW, semiconductor and fiber laser modelling |

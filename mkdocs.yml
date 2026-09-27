@@ -26,3 +26,4 @@ nav:
       - ADR-0012 Stochastic components and trials: decisions/0012-stochastic-components-and-trials.md
       - ADR-0013 GUI architecture: decisions/0013-gui-architecture.md
       - ADR-0014 SSFM: decisions/0014-ssfm.md
+      - ADR-0015 FSO channel: decisions/0015-fso-channel.md

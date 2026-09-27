@@ -58,6 +58,7 @@ cannot pass unnoticed.
 | Monte Carlo BER (independent trials) | `n_trials × Σ ½ erfc(…)` | ✅ `test_monte_carlo_ber.py` |
 | HDF5 results round trip | bit-exact signals and results | ✅ `tests/integration/test_results_hdf5.py` |
 | SSFM: linear limit, exact SPM, SPM sign, solitons (N = 1, N = 2 closed form), order 2, energy | analytic | ✅ `tests/validation/test_ssfm.py` |
+| FSO: aperture collection, Kim/Koschmieder, rain, Rytov, log-normal and Gamma-Gamma statistics, channel mean/outage vs Monte Carlo | closed form, independent quadrature, Monte Carlo | ✅ `tests/validation/test_fso_physics.py`, `tests/integration/test_fso_component.py` |
 
 GUI tests: Qt-free models in `tests/unit/test_gui_*.py`; the Qt views run
 headless (`QT_QPA_PLATFORM=offscreen`, set in `tests/conftest.py`) in
