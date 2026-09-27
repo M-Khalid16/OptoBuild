@@ -20,3 +20,4 @@ nav:
       - ADR-0006 Project persistence: decisions/0006-project-persistence.md
       - ADR-0007 Numerical backend: decisions/0007-numerical-backend.md
       - ADR-0008 Reproducible randomness: decisions/0008-reproducible-randomness.md
+      - ADR-0009 Validation and results: decisions/0009-construction-validation-and-results.md

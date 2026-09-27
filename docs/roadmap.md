@@ -18,7 +18,7 @@ later phase needs must not be painted into a corner), recorded in an ADR.
 
 Exit: docs internally consistent; tests and ruff pass; package installs. ✅
 
-## Phase 1 — Foundation implementation
+## Phase 1 — Foundation implementation ✅
 
 Milestones (each a separate commit with tests):
 
@@ -36,6 +36,9 @@ Milestones (each a separate commit with tests):
 8. `persistence` — JSON project save/load, schema version.
 9. `cli` + `examples/` — simple multi-component propagation using
    test/utility components only (gain, delay, probe; no device physics).
+
+Status: complete (v0.1.0). `SymbolSequence`, tracked `NoiseRepresentation`
+and HDF5 result storage were deferred until a component needs them.
 
 Exit criteria (all must hold): component instances can be created; parameter
 validation works; ports are typed; valid connections accepted and invalid

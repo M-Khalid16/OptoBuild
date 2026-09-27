@@ -14,5 +14,6 @@ new ADR that *supersedes* the old one.
 | [0006](0006-project-persistence.md) | Project persistence format | Accepted |
 | [0007](0007-numerical-backend.md) | Numerical backend strategy | Accepted |
 | [0008](0008-reproducible-randomness.md) | Reproducible randomness | Accepted |
+| [0009](0009-construction-validation-and-results.md) | Construction-time validation and recorded results (amends 0004) | Accepted |
 
 Template: [template.md](template.md).

@@ -1,8 +1,7 @@
 # Component API
 
-Status: **interface defined** (`optobuild.components.base`,
-`optobuild.components.spec`); parameter validation, registry and concrete
-components arrive in Phase 1–2. Decision record: ADR-0004.
+Status: **implemented (Phase 1)** in `optobuild.components.base`,
+`.spec`, `.registry`, `.reference`. Decision records: ADR-0004, ADR-0009.
 
 ## 1. Contract
 
@@ -46,7 +45,7 @@ class MachZehnderModulator(Component):
 | category | `category: ComponentCategory` | palette grouping and docs |
 | typed ports | `input_ports`, `output_ports` (`PortSpec`) | names unique per direction; kind from `SignalKind` |
 | parameter schema | `parameter_specs` (`ParameterSpec`) | SI `unit`, optional `display_unit`, range, choices, symbol, description |
-| parameter validation | `validate() -> list[Diagnostic]` | schema checks (Phase 1, in the base class) + cross-parameter physics checks (subclass) |
+| parameter validation | `__init__` (schema) + `validate() -> list[Diagnostic]` (cross-parameter) | invalid parameters raise `InvalidParameterError` at construction, listing every problem; warnings kept in `diagnostics` (ADR-0009) |
 | execution | `run(inputs, context) -> {port: signal}` | pure function of parameters, inputs and `context.rng` |
 | metadata / docs | class docstring via `documentation()`; physics docs linked | equations documented once, in physics docs |
 
@@ -96,15 +95,19 @@ are **not** expressed as graph cycles in the feed-forward executor (ADR-0005).
 | `logger` | `logging.Logger` named `optobuild.run.<component name>` |
 | `check_cancelled()` | raises `SimulationCancelledError`; long loops call it periodically |
 | `report_progress(fraction, message)` | progress in [0, 1] |
+| `record(key, value)` | store an analysis result (number, string, array, tuple, dataclass); arrays are copied read-only (ADR-0009) |
+| `warn(diagnostic)` | attach a run-time `Diagnostic` (e.g. aliasing risk) to the node's results |
 
 Components must not create their own generators, read global state, or
 perform I/O other than logging.
 
 ## 5. Errors and diagnostics
 
-* Parameter problems: `validate()` returns `Diagnostic` records; the engine
-  refuses to run a graph with `ERROR` diagnostics, and attaches warnings to
-  results.
+* Parameter problems: construction raises `InvalidParameterError` naming
+  every invalid value with its SI unit and range; a component instance is
+  therefore always valid. `validate()` warnings are kept on the instance and
+  reported by `SimulationGraph.validate()`; graphs with `ERROR` diagnostics
+  (e.g. unconnected inputs) are refused by the executor.
 * Wrong input kinds at run time (should be prevented by graph validation):
   `SignalTypeError`.
 * Numerical problems discovered during `run` (e.g. aliasing): warnings via
@@ -115,11 +118,19 @@ perform I/O other than logging.
 
 ## 6. Registry and plugins
 
-Phase 1 adds a `ComponentRegistry` mapping `type_id -> class`, used by
-persistence to instantiate components from project files. Registration is
-explicit (no import-time side effects on a global mutable registry beyond the
-built-in library); plugins (Phase 10) register through Python entry points
+`ComponentRegistry` maps `type_id -> class` and is used by persistence to
+instantiate components from project files. Registries are ordinary objects;
+`builtin_registry()` returns a fresh registry holding
+`components.library.BUILTIN_COMPONENTS` (no global mutable singleton).
+Plugins (Phase 10) will register through Python entry points
 (`optobuild.components` group).
+
+## 6a. Reference components
+
+`components.reference` provides deterministic, trivially predictable blocks
+(`RampSource`, `Gain`, `Adder`, `GaussianNoise`, `Recorder`) so the graph,
+engine, cache, persistence and seeding can be validated exactly, independent
+of optical physics (`optobuild demo reference`).
 
 ## 7. Testing requirements for each component
 

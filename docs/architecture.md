@@ -61,13 +61,13 @@ It displays results produced by `analysis`/`engine` and edits graphs through
 
 | Subsystem | Responsibility | Must NOT contain |
 |---|---|---|
-| `core` | exact SI constants, unit conversion (Phase 1), exception hierarchy, `Diagnostic`, seed handling (Phase 1), logging setup | any signal or physics semantics |
+| `core` | exact SI constants (`constants`), unit conversion (`units`), exception hierarchy (`errors`), `Diagnostic` (`diagnostics`), seed derivation (`rng`), logging helpers (`log`) | any signal or physics semantics |
 | `numerics` | `TimeGrid`, FFT convention (`numerics.fft`), later windows, resampling, generic filters, sampling diagnostics | device physics |
 | `signals` | `OpticalSignal`, `ElectricalSignal`, `DigitalSequence`, `SymbolSequence`, noise representation, `SignalKind` | algorithms beyond trivial accessors (power, wavelength) |
 | `physics` | equations: fiber attenuation/dispersion, MZM transfer, photodetection, noise PSDs; later atmosphere, lasers, photonic elements | ports, parameters schemas, GUI, file I/O |
 | `analysis` | BER counting, Q-factor, eye diagram data, spectra, power, later EVM/OSNR/constellation/link budget | signal generation |
 | `solvers` | linear frequency-domain propagation, SSFM (P4), ODE (P8), cavity round-trip (P9) | component metadata |
-| `components` | `Component` ABC, `PortSpec`, `ParameterSpec`, registry, concrete blocks grouped by category | equations (delegate to physics) |
+| `components` | `Component` ABC (`base`), `PortSpec`/`ParameterSpec` (`spec`), `ComponentRegistry` (`registry`), built-in list (`library`), reference blocks (`reference`), concrete blocks grouped by category | equations (delegate to physics) |
 | `graph` | graph data model, connections, port-kind checking, topology, cycle detection | execution |
 | `engine` | `RunContext` implementation, DAG executor, cache & invalidation, progress, cancellation; later iterative executor | physics |
 | `persistence` | project JSON/YAML, schema versions & migrations, HDF5 results | pickle of user data |

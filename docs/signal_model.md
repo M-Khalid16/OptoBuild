@@ -1,8 +1,11 @@
 # Signal model
 
-Status: **Phase 0 design; implemented in Phase 1.** Decisions: ADR-0001
+Status: **implemented in Phase 1** for `OpticalSignal`, `ElectricalSignal`
+and `DigitalSequence` (`optobuild.signals`). `SymbolSequence`,
+`NoiseRepresentation` (tracked noise), `ComplexEnvelope` as a separate base
+class and `PulseTrain` are specified here but **not yet implemented**; they
+are added when the first component needs them. Decisions: ADR-0001
 (representation), ADR-0002 (FFT convention), ADR-0003 (units).
-Only `SignalKind` and `TimeGrid` exist in code today.
 
 ## 1. General rules
 
