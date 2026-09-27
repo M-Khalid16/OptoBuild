@@ -1,6 +1,6 @@
 # Physics models
 
-Status: **Phase 2 models implemented and validated** (v0.2.0). Later-phase
+Status: **Phase 2 and Phase 4 models implemented and validated** (v0.5.0). Later-phase
 models are listed in §2 as *not started*; nothing here describes code that
 does not exist.
 
@@ -36,7 +36,8 @@ Every implemented model has:
 | Decision circuit | 2 | ✅ validated | `analysis.decision` | `optobuild.electrical.decision` |
 | BER counting, confidence, Gaussian theory | 2 | ✅ validated | `analysis.ber` | `optobuild.analyzer.ber` |
 | Optical power, spectrum, eye data | 2 | ✅ validated | `analysis.power/spectrum/eye` | `optobuild.analyzer.*` |
-| SSFM / NLSE | 4 | not started | — | — |
+| Optical pulse source (Gaussian, sech) | 4 | ✅ validated | `physics.sources` | `optobuild.source.optical_pulse` |
+| Nonlinear fiber: NLSE (SPM, β2, β3, loss), SSFM | 4 | ✅ validated | `physics.nonlinear`, `solvers.ssfm` | `optobuild.channel.nonlinear_fiber` |
 | Atmospheric channel, turbulence | 5 | not started | — | — |
 | Coherent receiver / DSP | 6 | not started | — | — |
 | Photonic circuit elements | 7 | not started | — | — |
@@ -191,6 +192,40 @@ Every implemented model has:
 * Validation: `tests/unit/test_analysis.py`, `test_sources.py`,
   `tests/integration/test_optical_link.py` (TX spectrum total = TX power;
   RX/TX power ratio = `e^{−αL}`).
+
+### 3.10 Nonlinear fiber (NLSE, SSFM) — `physics.nonlinear`, `solvers.ssfm`
+
+1. `∂A/∂z = −α/2·A − i(β2/2·ω² + β3/6·ω³)A − iγ|A|²A` (our convention; Agrawal
+   has `+iγ|A|²A`). Split step: `D(h/2) N(h) D(h/2)`,
+   `N(h): A → A e^{−αh/2} exp(−iγ|A|² L_eff(h))`, `L_eff(h) = (1−e^{−αh})/α`.
+2. `γ = 2π n2/(λ A_eff)` [1/(W m)] (≈ 1.3 /(W km) for SMF), `n2` [m²/W],
+   `A_eff` [m²], `L_D = T0²/|β2|`, `L_NL = 1/(γP0)`, `N² = L_D/L_NL`.
+3. Scalar field, instantaneous Kerr (SPM only), γ frequency-independent,
+   β up to third order, frequency-flat loss.
+4. Pulses ≳ 1 ps (no Raman/self-steepening); powers below SRS/SBS thresholds;
+   step small enough that per-step nonlinear phase ≪ 1 rad.
+5. Adaptive steps (peak phase per step ≤ `max_phase`, ≤ `max_step`) or fixed
+   steps; each step = 2 FFT pairs of length N.
+6. Splitting error O(h²); periodic window; aliasing if the spectrum
+   broadens to ±fs/2 (warning `ssfm.spectral_truncation`); wrap-around for
+   pulses (warning `sampling.window_wraparound`). Note that β3 derived from D
+   is non-zero even for zero dispersion slope S.
+7. Agrawal, *Nonlinear Fiber Optics*, 6th ed., ch. 2, 4, 5; Sinkin et al.,
+   *J. Lightwave Technol.* 21, 61 (2003); Satsuma & Yajima, *Prog. Theor.
+   Phys. Suppl.* 55, 284 (1974).
+8. `tests/validation/test_ssfm.py`: γ = 0 equals the linear fiber (1e-12);
+   pure SPM with loss exact (1e-12) for 1, 3, 50 steps; leading-edge red shift;
+   fundamental soliton stationary with phase −γP0z/2 (1e-5); N = 2 complex field
+   vs the Satsuma–Yajima solution at three distances (1e-5; observed ≤ 3.7e-6);
+   N = 2 period; measured convergence order 2 ± 0.2; energy conservation for
+   α = 0 (1e-12); step control. `tests/integration/test_nonlinear_components.py`.
+
+### 3.11 Optical pulse source — `physics.sources.pulse_field`
+
+Gaussian `sqrt(P0) exp(−(t−tc)²/(2T0²))` or sech `sqrt(P0) sech((t−tc)/T0)`,
+centred in the window, unchirped. Energies `P0 T0 √π` and `2 P0 T0` are
+verified numerically. Diagnostics: fewer than 3 samples per T0, pulse energy
+at the window edges.
 
 ## 4. References
 

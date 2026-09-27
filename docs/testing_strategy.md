@@ -57,6 +57,7 @@ cannot pass unnoticed.
 | Reproducibility | identical seeds ⇒ identical arrays; different component names ⇒ independent streams | ✅ `tests/integration/test_reproducibility.py`, `test_optical_link.py` |
 | Monte Carlo BER (independent trials) | `n_trials × Σ ½ erfc(…)` | ✅ `test_monte_carlo_ber.py` |
 | HDF5 results round trip | bit-exact signals and results | ✅ `tests/integration/test_results_hdf5.py` |
+| SSFM: linear limit, exact SPM, SPM sign, solitons (N = 1, N = 2 closed form), order 2, energy | analytic | ✅ `tests/validation/test_ssfm.py` |
 
 GUI tests: Qt-free models in `tests/unit/test_gui_*.py`; the Qt views run
 headless (`QT_QPA_PLATFORM=offscreen`, set in `tests/conftest.py`) in

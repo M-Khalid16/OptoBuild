@@ -4,8 +4,11 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 3 complete (v0.4.0)** — GUI on top of the validated
-link. Phase 2 (v0.2.0) delivered — the first validated
+**Current status: Phase 4 complete (v0.5.0)** — nonlinear fiber propagation
+(split-step Fourier NLSE with loss, β2, β3 and Kerr SPM), validated against
+exact SPM, fundamental and second-order soliton solutions (`optobuild demo
+soliton`, `examples/soliton.py`). Phase 3 (v0.4.0) added the GUI on top of the
+validated link. Phase 2 (v0.2.0) delivered — the first validated
 end-to-end optical link:
 
 ```

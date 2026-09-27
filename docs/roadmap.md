@@ -89,11 +89,24 @@ and `tests/unit/test_gui_*.py`):
 
 Status: complete (v0.4.0). ADR-0013. Screenshot: `docs/images/gui_optical_link.png`.
 
+## Phase 4 — Nonlinear fiber propagation (SSFM) ✅
+
+* Scalar NLSE (loss, β2, β3, Kerr SPM) by symmetric split-step Fourier with
+  exact Kerr+loss sub-step; adaptive nonlinear-phase step control or fixed
+  steps (ADR-0014).
+* Diagnostics: per-step nonlinear phase, spectral truncation, window
+  wrap-around, non-finite fields.
+* Optical pulse source (Gaussian/sech); soliton demo and example.
+* Validation: linear limit, exact SPM, SPM chirp sign, fundamental soliton,
+  N = 2 soliton vs closed form, period, convergence order, energy.
+
+Status: complete (v0.5.0). Deferred to Phase 9: Raman, self-steepening,
+vector/multichannel propagation, higher-order adaptive schemes.
+
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 4 | Advanced fiber propagation: SSFM/NLSE, step-size and nonlinear-phase diagnostics, spectral truncation, wrap-around |
 | 5 | FSO channel and link-budget analysis |
 | 6 | Coherent optical communication (dual-pol, DSP, EVM, constellations, OSNR) |
 | 7 | Photonic circuit simulation (transfer/S-matrix) |

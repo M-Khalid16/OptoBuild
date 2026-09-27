@@ -1,7 +1,7 @@
 {
   "format": "optobuild-project",
   "schema_version": 2,
-  "optobuild_version": "0.4.0",
+  "optobuild_version": "0.5.0",
   "metadata": {
     "title": "10 Gb/s NRZ-OOK reference link"
   },

@@ -67,6 +67,9 @@ ours:     Ã(z, ω) = Ã(0, ω) · exp( -i (β2/2 ω² + β3/6 ω³) z )
 Agrawal:  Ã(z, ω) = Ã(0, ω) · exp( +i (β2/2 ω² + β3/6 ω³) z )
 ```
 
+The Kerr term flips the same way: ours `−iγ|A|²A`, Agrawal `+iγ|A|²A`
+(validated against the conjugate of his closed-form N = 2 soliton).
+
 Derivation (ours): a monochromatic component propagates as
 `exp(i(ω_a t − β(ω_a) z))`; expanding `β` about `ω0` and moving to
 `T = t − β1 z` leaves `exp(−i(β2 ω²/2 + β3 ω³/6) z)`. Both forms predict the

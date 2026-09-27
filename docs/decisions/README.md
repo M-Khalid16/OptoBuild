@@ -19,5 +19,6 @@ new ADR that *supersedes* the old one.
 | [0011](0011-global-simulation-layout.md) | Global simulation layout (project schema v2) | Accepted |
 | [0012](0012-stochastic-components-and-trials.md) | Stochastic components and Monte Carlo trials | Accepted |
 | [0013](0013-gui-architecture.md) | GUI architecture (Qt-free models + Qt views) | Accepted |
+| [0014](0014-ssfm.md) | Split-step Fourier solver for the NLSE | Accepted |
 
 Template: [template.md](template.md).
