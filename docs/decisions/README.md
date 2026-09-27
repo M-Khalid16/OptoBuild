@@ -1,0 +1,18 @@
+# Architecture Decision Records
+
+Each major decision is recorded as an ADR (context → decision → alternatives →
+consequences). ADRs are immutable once *Accepted*; a changed decision gets a
+new ADR that *supersedes* the old one.
+
+| ADR | Title | Status |
+|---|---|---|
+| [0001](0001-signal-representation.md) | Signal representation | Accepted |
+| [0002](0002-fft-convention.md) | FFT and spectral-density convention | Accepted |
+| [0003](0003-physical-units.md) | Physical unit strategy | Accepted |
+| [0004](0004-component-api.md) | Component API | Accepted |
+| [0005](0005-graph-execution.md) | Graph execution architecture | Accepted |
+| [0006](0006-project-persistence.md) | Project persistence format | Accepted |
+| [0007](0007-numerical-backend.md) | Numerical backend strategy | Accepted |
+| [0008](0008-reproducible-randomness.md) | Reproducible randomness | Accepted |
+
+Template: [template.md](template.md).

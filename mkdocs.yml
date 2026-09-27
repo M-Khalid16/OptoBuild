@@ -1,0 +1,22 @@
+site_name: OptoBuild
+docs_dir: docs
+nav:
+  - Home: index.md
+  - Requirements: requirements.md
+  - Architecture: architecture.md
+  - Signal model: signal_model.md
+  - Numerical conventions: numerical_conventions.md
+  - Component API: component_api.md
+  - Physics models: physics_models.md
+  - Testing strategy: testing_strategy.md
+  - Roadmap: roadmap.md
+  - Decisions:
+      - Index: decisions/README.md
+      - ADR-0001 Signal representation: decisions/0001-signal-representation.md
+      - ADR-0002 FFT convention: decisions/0002-fft-convention.md
+      - ADR-0003 Physical units: decisions/0003-physical-units.md
+      - ADR-0004 Component API: decisions/0004-component-api.md
+      - ADR-0005 Graph execution: decisions/0005-graph-execution.md
+      - ADR-0006 Project persistence: decisions/0006-project-persistence.md
+      - ADR-0007 Numerical backend: decisions/0007-numerical-backend.md
+      - ADR-0008 Reproducible randomness: decisions/0008-reproducible-randomness.md
