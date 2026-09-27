@@ -45,7 +45,9 @@ def _freeze_result(value: Any) -> Any:
         arr = np.array(value, copy=True)
         arr.setflags(write=False)
         return arr
-    if isinstance(value, (int, float, complex, str, bool, type(None), np.generic)):
+    if isinstance(value, np.generic):
+        return value.item()  # canonical Python scalar
+    if isinstance(value, (int, float, complex, str, bool, type(None))):
         return value
     if isinstance(value, tuple) or is_dataclass(value):
         return value
@@ -107,7 +109,7 @@ class ExecutionContext:
             self._progress(min(max(float(fraction), 0.0), 1.0), message)
 
     def record(self, key: str, value: Any) -> None:
-        """Store a result; arrays are copied and made read-only."""
+        """Store a result; arrays are copied read-only, NumPy scalars become Python scalars."""
         if key in self.results:
             raise KeyError(f"Result '{key}' was already recorded by '{self._name}'.")
         self.results[key] = _freeze_result(value)

@@ -197,3 +197,11 @@ def test_noise_component_uses_context_rng() -> None:
     c = FeedForwardExecutor().run(g, seed=6).result("rec", "samples")
     np.testing.assert_array_equal(a, b)
     assert not np.array_equal(a, c)
+
+
+def test_numpy_scalars_are_recorded_as_python_scalars() -> None:
+    ctx = ExecutionContext("n", 0)
+    ctx.record("f", np.float64(1.5))
+    ctx.record("i", np.int64(3))
+    ctx.record("b", np.bool_(True))
+    assert [type(ctx.results[k]) for k in "fib"] == [float, int, bool]

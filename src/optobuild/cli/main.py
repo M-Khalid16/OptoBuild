@@ -73,7 +73,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", help="run a project file (.json/.yaml)")
     p_run.add_argument("project")
     p_run.add_argument("--seed", type=int, default=None, help="override the project seed")
+    for p in (p_demo, p_run):
+        p.add_argument(
+            "--save-results",
+            metavar="PATH",
+            help="write signals and results to an HDF5 file (requires h5py)",
+        )
     return parser
+
+
+def _report(project: Project, args: argparse.Namespace) -> None:
+    result = _run_project(project, args.seed)
+    print_result(result)
+    if args.save_results:
+        from optobuild.persistence.results import save_results
+
+        print(f"saved results to {save_results(result, args.save_results, project=project)}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -91,10 +106,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             project = DEMOS[args.name]()
             if args.save:
                 print(f"saved project to {save_project(project, args.save)}")
-            print_result(_run_project(project, args.seed))
+            _report(project, args)
             return 0
         if args.command == "run":
-            print_result(_run_project(load_project(args.project), args.seed))
+            _report(load_project(args.project), args)
             return 0
     except OptoBuildError as exc:
         print(f"error: {exc}", file=sys.stderr)
