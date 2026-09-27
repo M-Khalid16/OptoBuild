@@ -1,6 +1,6 @@
 # ADR-0010: Per-source sampling grids and bit-timing metadata
 
-* Status: Accepted
+* Status: Accepted; decision 1 superseded by ADR-0011
 * Date: 2026-09-27
 
 ## Context

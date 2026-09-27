@@ -24,9 +24,10 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import numpy as np
 
-from optobuild.components.spec import ComponentCategory, ParameterSpec, PortSpec
+from optobuild.components.spec import ComponentCategory, ParameterSpec, ParameterType, PortSpec
 from optobuild.core.diagnostics import Diagnostic, Severity
-from optobuild.core.errors import InvalidGraphError, InvalidParameterError
+from optobuild.core.errors import InvalidGraphError, InvalidParameterError, SamplingError
+from optobuild.numerics.layout import SimulationLayout
 
 TYPE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 """Type ids are dotted lowercase namespaces, e.g. ``optobuild.source.cw_laser``."""
@@ -48,6 +49,11 @@ class RunContext(Protocol):
     @property
     def logger(self) -> logging.Logger:
         """Logger scoped to the component instance."""
+        ...
+
+    @property
+    def layout(self) -> SimulationLayout | None:
+        """Global simulation layout of the run, or ``None`` (ADR-0011)."""
         ...
 
     def check_cancelled(self) -> None:
@@ -217,4 +223,27 @@ class Component(ABC):
         return f"{type(self).__name__}(name={self._name!r})"
 
 
-__all__ = ["TYPE_ID_PATTERN", "Component", "RunContext"]
+TIMING_SOURCE_SPEC = ParameterSpec(
+    "timing_source",
+    ParameterType.CHOICE,
+    default="parameters",
+    choices=("parameters", "layout"),
+    description="Take bit rate / sequence length / sampling from this component's own "
+    "parameters or from the global simulation layout (ADR-0011)",
+)
+"""Shared parameter of source components that can follow the global layout."""
+
+
+def require_layout(context: RunContext, component_name: str) -> SimulationLayout:
+    """The run's layout, or a ``SamplingError`` explaining how to provide one."""
+    layout = getattr(context, "layout", None)
+    if layout is None:
+        raise SamplingError(
+            f"'{component_name}' has timing_source='layout' but the simulation has no layout.",
+            hint="Set a layout (bit_rate, n_bits, samples_per_bit) on the project or pass "
+            "layout= to the executor, or use timing_source='parameters'.",
+        )
+    return layout
+
+
+__all__ = ["TIMING_SOURCE_SPEC", "TYPE_ID_PATTERN", "Component", "RunContext", "require_layout"]

@@ -5,13 +5,14 @@ Equations: optobuild.physics.modulation, docs/physics_models.md sec. 3.3-3.4.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import Any
 
-from optobuild.components.base import Component, RunContext
+from optobuild.components.base import TIMING_SOURCE_SPEC, Component, RunContext, require_layout
 from optobuild.components.spec import ComponentCategory, ParameterSpec, ParameterType, PortSpec
 from optobuild.core.diagnostics import Diagnostic
-from optobuild.core.errors import SignalTypeError
+from optobuild.core.errors import SamplingError, SignalTypeError
 from optobuild.numerics.sampling import aliasing_diagnostic, samples_per_symbol_diagnostic
 from optobuild.physics.modulation import mzm_field_transfer, nrz_grid, nrz_waveform
 from optobuild.signals import (
@@ -26,10 +27,15 @@ from optobuild.signals import metadata as meta
 
 
 class NRZGenerator(Component):
-    """Non-return-to-zero voltage waveform from a bit sequence (optional Gaussian edges)."""
+    """Non-return-to-zero voltage waveform from a bit sequence (optional Gaussian edges).
+
+    With ``timing_source="layout"`` the samples per bit come from the global
+    layout, and the incoming sequence must match the layout's bit rate and
+    number of bits.
+    """
 
     type_id = "optobuild.modulator.nrz_generator"
-    version = "1.0.0"
+    version = "1.1.0"
     display_name = "NRZ pulse generator"
     category = ComponentCategory.MODULATOR
     input_ports = (PortSpec("bits", SignalKind.DIGITAL),)
@@ -62,6 +68,7 @@ class NRZGenerator(Component):
             symbol="t_r",
             description="10-90 % rise time of Gaussian-filtered edges (0 = rectangular)",
         ),
+        TIMING_SOURCE_SPEC,
     )
 
     def validate(self) -> list[Diagnostic]:
@@ -73,6 +80,19 @@ class NRZGenerator(Component):
         seq: DigitalSequence = inputs["bits"]
         p = self.parameters
         sps = p["samples_per_bit"]
+        if p["timing_source"] == "layout":
+            layout = require_layout(context, self.name)
+            sps = layout.samples_per_bit
+            same_rate = math.isclose(seq.bit_rate, layout.bit_rate, rel_tol=1e-12)
+            if seq.n_bits != layout.n_bits or not same_rate:
+                raise SamplingError(
+                    f"'{self.name}' received {seq.n_bits} bits at {seq.bit_rate:g} bit/s but the "
+                    f"layout specifies {layout.n_bits} bits at {layout.bit_rate:g} bit/s.",
+                    hint="Set the bit source to timing_source='layout' as well.",
+                )
+            diag = samples_per_symbol_diagnostic(sps, self.name)
+            if diag:
+                context.warn(diag)
         grid = nrz_grid(seq.n_bits, seq.bit_rate, sps)
         v = nrz_waveform(seq.bits, sps, grid, p["low"], p["high"], p["rise_time"])
         md = {meta.BIT_RATE: seq.bit_rate, meta.SAMPLES_PER_BIT: sps}

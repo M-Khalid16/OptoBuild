@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from optobuild.components.reference import Adder, Gain, GaussianNoise, RampSource, Recorder
 from optobuild.graph.model import SimulationGraph
+from optobuild.numerics.layout import SimulationLayout
 from optobuild.persistence.project import Project
 
 
@@ -53,7 +54,8 @@ def optical_link_project(
         MZM -> fiber -> PIN -> low-pass filter -> decision -> BER analyzer (ref: PRBS)
         taps: power meters (TX, RX), optical spectrum (TX), eye diagram (after filter)
 
-    All sources share one sampling grid derived from the arguments.
+    All sources follow one global simulation layout (ADR-0011):
+    ``bit_rate``, ``n_bits = 2^prbs_order - 1`` and ``samples_per_bit``.
     """
     from optobuild.components.analyzers import (
         BERAnalyzer,
@@ -68,15 +70,15 @@ def optical_link_project(
     from optobuild.components.sources import CWLaser, PRBSGenerator
     from optobuild.physics.prbs import prbs_period
 
-    n_bits = prbs_period(prbs_order)
+    layout = SimulationLayout(bit_rate, prbs_period(prbs_order), samples_per_bit)
     v_pi = 4.0
     g = SimulationGraph()
-    g.add(PRBSGenerator("prbs", {"order": prbs_order, "bit_rate": bit_rate}))
+    g.add(PRBSGenerator("prbs", {"order": prbs_order, "timing_source": "layout"}))
     g.add(
         NRZGenerator(
             "nrz",
             {
-                "samples_per_bit": samples_per_bit,
+                "timing_source": "layout",
                 "low": -v_pi / 2,
                 "high": v_pi / 2,
                 "rise_time": 0.3 / bit_rate,
@@ -89,8 +91,7 @@ def optical_link_project(
             {
                 "power": laser_power_w,
                 "wavelength": 1550e-9,
-                "n_samples": n_bits * samples_per_bit,
-                "sample_rate": bit_rate * samples_per_bit,
+                "timing_source": "layout",
             },
         )
     )
@@ -127,7 +128,8 @@ def optical_link_project(
     g.connect("filter", "out", "eye", "in")
     g.connect("decision", "bits", "ber", "received")
     g.connect("prbs", "out", "ber", "reference")
-    return Project(graph=g, seed=seed, metadata={"title": "10 Gb/s NRZ-OOK reference link"})
+    title = f"{bit_rate / 1e9:g} Gb/s NRZ-OOK reference link"
+    return Project(graph=g, seed=seed, layout=layout, metadata={"title": title})
 
 
 DEMOS["optical_link"] = optical_link_project

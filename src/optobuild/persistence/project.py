@@ -1,21 +1,27 @@
 """Project files (ADR-0006): versioned JSON (optionally YAML); never pickle.
 
-Schema version 1::
+Schema version 2::
 
     {
       "format": "optobuild-project",
-      "schema_version": 1,
+      "schema_version": 2,
       "optobuild_version": "x.y.z",
       "metadata": {...},                      # free-form JSON object
-      "simulation": {"seed": 0},
+      "simulation": {"seed": 0,
+                     "layout": {"bit_rate": 1e10, "n_bits": 2047,
+                                "samples_per_bit": 16}},   # optional (ADR-0011)
       "components": [
         {"name": "...", "type_id": "...", "version": "...",
          "parameters": {"p": value, ...},     # SI values
          "units": {"p": "V", ...}}            # SI unit of each numeric parameter
       ],
       "connections": [{"from": ["node", "port"], "to": ["node", "port"]}],
-      "layout": {...}                         # GUI-only; ignored by the engine
+      "schematic": {...}                      # GUI-only; ignored by the engine
     }
+
+Older schema versions are upgraded on load by pure migration functions
+(``MIGRATIONS``): v1 -> v2 renames the GUI-only top-level key ``layout`` to
+``schematic`` (the word "layout" now means the simulation layout).
 
 Loading is strict: unknown keys, unknown component types, unit mismatches
 and unsupported schema versions raise :class:`ProjectFormatError`.
@@ -36,10 +42,12 @@ from optobuild.components.spec import ParameterType
 from optobuild.core.diagnostics import Diagnostic, Severity
 from optobuild.core.errors import OptoBuildError, ProjectFormatError
 from optobuild.core.rng import validate_seed
+from optobuild.engine.executor import FeedForwardExecutor, SimulationResult
 from optobuild.graph.model import SimulationGraph
+from optobuild.numerics.layout import SimulationLayout
 
 FORMAT_NAME = "optobuild-project"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _TOP_KEYS = {
     "format",
     "schema_version",
@@ -48,8 +56,22 @@ _TOP_KEYS = {
     "simulation",
     "components",
     "connections",
-    "layout",
+    "schematic",
 }
+_SIMULATION_KEYS = {"seed", "layout"}
+
+
+def _migrate_v1_to_v2(data: dict[str, Any]) -> dict[str, Any]:
+    """v1 -> v2: the GUI-only key ``layout`` becomes ``schematic``."""
+    out = dict(data)
+    if "layout" in out:
+        out["schematic"] = out.pop("layout")
+    out["schema_version"] = 2
+    return out
+
+
+MIGRATIONS = {1: _migrate_v1_to_v2}
+"""schema_version -> function upgrading a project dict by one version."""
 _COMPONENT_KEYS = {"name", "type_id", "version", "parameters", "units"}
 
 
@@ -60,7 +82,10 @@ class Project:
     graph: SimulationGraph
     seed: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
-    layout: dict[str, Any] = field(default_factory=dict)
+    layout: SimulationLayout | None = None
+    """Global simulation layout (bit rate, bits, samples per bit), ADR-0011."""
+    schematic: dict[str, Any] = field(default_factory=dict)
+    """GUI-only data (component positions, ...); ignored by the engine."""
     diagnostics: list[Diagnostic] = field(default_factory=list)
     """Findings from loading (e.g. component version differences)."""
 
@@ -89,14 +114,21 @@ def project_to_dict(project: Project) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "optobuild_version": optobuild.__version__,
         "metadata": dict(project.metadata),
-        "simulation": {"seed": validate_seed(project.seed)},
+        "simulation": _simulation_dict(project),
         "components": components,
         "connections": [
             {"from": [c.source.node, c.source.port], "to": [c.target.node, c.target.port]}
             for c in project.graph.connections
         ],
-        "layout": dict(project.layout),
+        "schematic": dict(project.schematic),
     }
+
+
+def _simulation_dict(project: Project) -> dict[str, Any]:
+    sim: dict[str, Any] = {"seed": validate_seed(project.seed)}
+    if project.layout is not None:
+        sim["layout"] = project.layout.to_dict()
+    return sim
 
 
 def _fail(message: str, hint: str | None = None) -> ProjectFormatError:
@@ -115,6 +147,11 @@ def project_from_dict(
     """Rebuild a :class:`Project` from :func:`project_to_dict` output (strictly validated)."""
     registry = builtin_registry() if registry is None else registry
     _require(data, Mapping, "Project")
+    if data.get("format") != FORMAT_NAME:
+        raise _fail(f"Not an OptoBuild project (format={data.get('format')!r}).")
+    data = dict(data)
+    while isinstance(data.get("schema_version"), int) and data["schema_version"] in MIGRATIONS:
+        data = MIGRATIONS[data["schema_version"]](data)
     unknown = set(data) - _TOP_KEYS
     if unknown:
         raise _fail(f"Unknown top-level project keys: {sorted(unknown)}.")
@@ -128,12 +165,18 @@ def project_from_dict(
         )
     diagnostics: list[Diagnostic] = []
     simulation = _require(data.get("simulation", {}), Mapping, "'simulation'")
-    if set(simulation) - {"seed"}:
-        raise _fail(f"Unknown simulation keys: {sorted(set(simulation) - {'seed'})}.")
+    if set(simulation) - _SIMULATION_KEYS:
+        raise _fail(f"Unknown simulation keys: {sorted(set(simulation) - _SIMULATION_KEYS)}.")
     try:
         seed = validate_seed(simulation.get("seed", 0))
     except OptoBuildError as exc:
         raise _fail(f"Invalid seed: {exc.message}") from exc
+    layout = None
+    if "layout" in simulation:
+        try:
+            layout = SimulationLayout.from_dict(dict(simulation["layout"]))
+        except (OptoBuildError, TypeError, ValueError) as exc:
+            raise _fail(f"Invalid simulation layout: {exc}") from exc
 
     graph = SimulationGraph()
     for i, entry in enumerate(_require(data.get("components", []), list, "'components'")):
@@ -188,8 +231,30 @@ def project_from_dict(
         graph=graph,
         seed=seed,
         metadata=dict(_require(data.get("metadata", {}), Mapping, "'metadata'")),
-        layout=dict(_require(data.get("layout", {}), Mapping, "'layout'")),
+        layout=layout,
+        schematic=dict(_require(data.get("schematic", {}), Mapping, "'schematic'")),
         diagnostics=diagnostics,
+    )
+
+
+def run_project(
+    project: Project,
+    *,
+    seed: int | None = None,
+    executor: FeedForwardExecutor | None = None,
+    **kwargs: Any,
+) -> SimulationResult:
+    """Run ``project`` with its own seed (or ``seed``) and simulation layout.
+
+    Extra keyword arguments (``progress``, ``cancel``, ``trial``) are passed to
+    :meth:`FeedForwardExecutor.run`.
+    """
+    executor = FeedForwardExecutor() if executor is None else executor
+    return executor.run(
+        project.graph,
+        seed=project.seed if seed is None else seed,
+        layout=project.layout,
+        **kwargs,
     )
 
 
@@ -275,5 +340,6 @@ __all__ = [
     "loads_project",
     "project_from_dict",
     "project_to_dict",
+    "run_project",
     "save_project",
 ]

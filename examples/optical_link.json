@@ -1,23 +1,29 @@
 {
   "format": "optobuild-project",
-  "schema_version": 1,
+  "schema_version": 2,
   "optobuild_version": "0.2.0",
   "metadata": {
     "title": "10 Gb/s NRZ-OOK reference link"
   },
   "simulation": {
-    "seed": 2026
+    "seed": 2026,
+    "layout": {
+      "bit_rate": 10000000000.0,
+      "n_bits": 2047,
+      "samples_per_bit": 16
+    }
   },
   "components": [
     {
       "name": "prbs",
       "type_id": "optobuild.source.prbs",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parameters": {
         "order": 11,
         "n_bits": 0,
         "seed": 0,
-        "bit_rate": 10000000000.0
+        "bit_rate": 10000000000.0,
+        "timing_source": "layout"
       },
       "units": {
         "n_bits": "1",
@@ -28,12 +34,13 @@
     {
       "name": "nrz",
       "type_id": "optobuild.modulator.nrz_generator",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parameters": {
         "samples_per_bit": 16,
         "low": -2.0,
         "high": 2.0,
-        "rise_time": 3e-11
+        "rise_time": 3e-11,
+        "timing_source": "layout"
       },
       "units": {
         "samples_per_bit": "1",
@@ -45,14 +52,15 @@
     {
       "name": "laser",
       "type_id": "optobuild.source.cw_laser",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parameters": {
         "power": 0.001,
         "wavelength": 1.55e-06,
         "phase": 0.0,
         "frequency_offset": 0.0,
-        "n_samples": 32752,
-        "sample_rate": 160000000000.0
+        "n_samples": 2048,
+        "sample_rate": 160000000000.0,
+        "timing_source": "layout"
       },
       "units": {
         "power": "W",
@@ -327,5 +335,5 @@
       ]
     }
   ],
-  "layout": {}
+  "schematic": {}
 }

@@ -21,8 +21,7 @@ import numpy as np
 
 from optobuild.analysis.ber import ber_from_q, q_factor
 from optobuild.cli.demos import optical_link_project
-from optobuild.engine import FeedForwardExecutor
-from optobuild.persistence import load_project, save_project
+from optobuild.persistence import load_project, run_project, save_project
 
 HERE = Path(__file__).resolve().parent
 
@@ -37,7 +36,7 @@ def main(argv: list[str] | None = None) -> None:
     project = optical_link_project(seed=args.seed, fiber_length_m=args.length_km * 1e3)
     if not args.no_save:
         project = load_project(save_project(project, HERE / "optical_link.json"))
-    res = FeedForwardExecutor().run(project.graph, seed=project.seed)
+    res = run_project(project)
 
     r = res.result
     print(

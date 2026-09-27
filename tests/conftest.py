@@ -37,6 +37,7 @@ class _Ctx:
 
         self.rng = component_generator(seed, name)
         self.logger = component_logger(name)
+        self.layout = None
         self.results: dict = {}
         self.diagnostics: list = []
 
@@ -57,8 +58,9 @@ class _Ctx:
 def run_component():
     """Run one component on given inputs; returns (outputs, context)."""
 
-    def _run(component, inputs=None, seed: int = 0):  # type: ignore[no-untyped-def]
+    def _run(component, inputs=None, seed: int = 0, layout=None):  # type: ignore[no-untyped-def]
         ctx = _Ctx(seed, component.name)
+        ctx.layout = layout
         return component.run(inputs or {}, ctx), ctx
 
     return _run

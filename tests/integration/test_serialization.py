@@ -53,7 +53,7 @@ def test_json_is_stable_and_human_readable() -> None:
     text = dumps_project(reference_project())
     assert dumps_project(loads_project(text)) == text
     data = json.loads(text)
-    assert data["format"] == "optobuild-project" and data["schema_version"] == 1
+    assert data["format"] == "optobuild-project" and data["schema_version"] == 2
     gain = next(c for c in data["components"] if c["name"] == "gain")
     assert gain["parameters"] == {"gain": 2.0} and gain["units"] == {"gain": "1"}
     assert {"from": ["ramp", "out"], "to": ["gain", "in"]} in data["connections"]
@@ -78,7 +78,18 @@ def _mutated(**edits):  # type: ignore[no-untyped-def]
     ("edits", "fragment"),
     [
         ({"format": "other"}, "Not an OptoBuild project"),
-        ({"schema_version": 2}, "Unsupported project schema_version"),
+        ({"schema_version": 3}, "Unsupported project schema_version"),
+        ({"schema_version": "2"}, "Unsupported project schema_version"),
+        ({"simulation": {"seed": 1, "layout": {"bit_rate": 1e9}}}, "Invalid simulation layout"),
+        (
+            {
+                "simulation": {
+                    "seed": 1,
+                    "layout": {"bit_rate": -1.0, "n_bits": 8, "samples_per_bit": 4},
+                }
+            },
+            "Invalid simulation layout",
+        ),
         ({"extra": 1}, "Unknown top-level"),
         ({"simulation": {"seed": -1}}, "Invalid seed"),
         ({"simulation": {"seed": 1, "x": 2}}, "Unknown simulation keys"),
@@ -137,3 +148,27 @@ def test_to_dict_does_not_alias_project() -> None:
     d["metadata"]["title"] = "changed"
     assert p.metadata["title"] != "changed"
     assert project_to_dict(p) == d2
+
+
+def test_v1_project_is_migrated() -> None:
+    """A schema-1 file (GUI key 'layout') loads; the key becomes 'schematic'."""
+    data = project_to_dict(reference_project())
+    data["schema_version"] = 1
+    data["layout"] = data.pop("schematic")
+    data["layout"]["ramp"] = [10, 20]
+    p = project_from_dict(data)
+    assert p.schematic == {"ramp": [10, 20]} and p.layout is None
+    assert project_to_dict(p)["schema_version"] == 2
+
+
+def test_simulation_layout_round_trip() -> None:
+    from optobuild.cli.demos import optical_link_project
+
+    p = optical_link_project(prbs_order=7)
+    text = dumps_project(p)
+    assert json.loads(text)["simulation"]["layout"] == {
+        "bit_rate": 10e9,
+        "n_bits": 127,
+        "samples_per_bit": 16,
+    }
+    assert loads_project(text).layout == p.layout

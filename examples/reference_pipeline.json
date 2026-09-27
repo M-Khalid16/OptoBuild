@@ -1,6 +1,6 @@
 {
   "format": "optobuild-project",
-  "schema_version": 1,
+  "schema_version": 2,
   "optobuild_version": "0.2.0",
   "metadata": {
     "title": "Framework reference pipeline"
@@ -149,5 +149,5 @@
       ]
     }
   ],
-  "layout": {}
+  "schematic": {}
 }

@@ -22,6 +22,7 @@ from optobuild.core.rng import validate_seed
 from optobuild.engine.cache import ResultCache, node_key
 from optobuild.engine.context import CancellationToken, ExecutionContext
 from optobuild.graph.model import SimulationGraph
+from optobuild.numerics.layout import SimulationLayout
 
 _LOG = get_logger("engine")
 
@@ -57,6 +58,8 @@ class SimulationResult:
     nodes: Mapping[str, NodeResult]
     seed: int
     diagnostics: tuple[Diagnostic, ...] = field(default=())
+    layout: SimulationLayout | None = None
+    trial: int | None = None
 
     def signal(self, node: str, port: str) -> Any:
         """Signal produced on output ``port`` of ``node`` (intermediate inspection)."""
@@ -96,8 +99,15 @@ class FeedForwardExecutor:
         seed: int = 0,
         progress: ProgressCallback | None = None,
         cancel: CancellationToken | None = None,
+        layout: SimulationLayout | None = None,
+        trial: int | None = None,
     ) -> SimulationResult:
         """Validate and execute ``graph``.
+
+        ``layout`` is the global simulation layout passed to every component
+        (ADR-0011). ``trial`` selects an independent Monte Carlo realization:
+        every component's generator becomes (seed, name, trial) (ADR-0008);
+        ``None`` is the default realization.
 
         Raises
         ------
@@ -111,6 +121,10 @@ class FeedForwardExecutor:
             If ``cancel`` is triggered.
         """
         root_seed = validate_seed(seed)
+        if trial is not None and (
+            isinstance(trial, bool) or not isinstance(trial, int) or trial < 0
+        ):
+            raise ValueError(f"trial must be a non-negative integer or None, got {trial!r}.")
         diagnostics = graph.validate()
         errors = [d for d in diagnostics if d.severity is Severity.ERROR]
         if errors:
@@ -130,7 +144,7 @@ class FeedForwardExecutor:
             input_keys = {
                 port: (keys[c.source.node], c.source.port) for port, c in incoming.items()
             }
-            key = node_key(comp, root_seed, input_keys)
+            key = node_key(comp, root_seed, input_keys, layout=layout, trial=trial)
             keys[name] = key
 
             if progress is not None:
@@ -147,7 +161,7 @@ class FeedForwardExecutor:
                     for port, c in incoming.items()
                 }
                 nodes[name] = self._run_node(
-                    comp, inputs, key, root_seed, i, total, progress, cancel
+                    comp, inputs, key, root_seed, i, total, progress, cancel, layout, trial
                 )
                 if self.cache is not None:
                     self.cache.put(key, nodes[name])
@@ -158,6 +172,8 @@ class FeedForwardExecutor:
             MappingProxyType(nodes),
             root_seed,
             tuple(d for d in diagnostics if d.severity is not Severity.ERROR),
+            layout=layout,
+            trial=trial,
         )
 
     @staticmethod
@@ -170,6 +186,8 @@ class FeedForwardExecutor:
         total: int,
         progress: ProgressCallback | None,
         cancel: CancellationToken | None,
+        layout: SimulationLayout | None,
+        trial: int | None,
     ) -> NodeResult:
         def sub_progress(fraction: float, message: str) -> None:
             if progress is not None:
@@ -177,7 +195,9 @@ class FeedForwardExecutor:
                     ProgressEvent(comp.name, index, total, (index + fraction) / total, message)
                 )
 
-        ctx = ExecutionContext(comp.name, root_seed, cancel=cancel, progress=sub_progress)
+        ctx = ExecutionContext(
+            comp.name, root_seed, cancel=cancel, progress=sub_progress, layout=layout, trial=trial
+        )
         start = time.perf_counter()
         try:
             raw = comp.run(inputs, ctx)

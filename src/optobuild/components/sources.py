@@ -9,9 +9,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from optobuild.components.base import Component, RunContext
+from optobuild.components.base import TIMING_SOURCE_SPEC, Component, RunContext, require_layout
 from optobuild.components.spec import ComponentCategory, ParameterSpec, ParameterType, PortSpec
 from optobuild.core.diagnostics import Diagnostic, Severity
+from optobuild.core.errors import SamplingError
 from optobuild.core.units import wavelength_to_frequency
 from optobuild.numerics.grid import TimeGrid
 from optobuild.physics.prbs import PRBS_POLYNOMIALS, prbs, prbs_period
@@ -24,12 +25,13 @@ class CWLaser(Component):
     """Ideal continuous-wave laser: A = sqrt(P0) exp(i (phi0 + 2 pi df t)).
 
     The signal reference frequency is c / wavelength; ``frequency_offset``
-    detunes the laser from it. The sampling grid (n_samples, sample_rate) must
-    match the electrical drive of the modulator it feeds.
+    detunes the laser from it. The sampling grid comes from ``n_samples`` and
+    ``sample_rate``, or from the global layout when ``timing_source="layout"``;
+    it must match the electrical drive of the modulator it feeds.
     """
 
     type_id = "optobuild.source.cw_laser"
-    version = "1.0.0"
+    version = "1.1.0"
     display_name = "CW laser"
     category = ComponentCategory.SOURCE
     output_ports = (PortSpec("out", SignalKind.OPTICAL, "CW optical field"),)
@@ -81,6 +83,7 @@ class CWLaser(Component):
             minimum=0.0,
             minimum_inclusive=False,
         ),
+        TIMING_SOURCE_SPEC,
     )
 
     @property
@@ -91,6 +94,8 @@ class CWLaser(Component):
     def validate(self) -> list[Diagnostic]:
         diags = super().validate()
         p = self.parameters
+        if p["timing_source"] == "layout":
+            return diags  # grid unknown until run time; checked in run()
         grid = TimeGrid.from_sample_rate(p["n_samples"], p["sample_rate"])
         if abs(p["frequency_offset"]) >= grid.nyquist_frequency:
             diags.append(
@@ -116,16 +121,40 @@ class CWLaser(Component):
 
     def run(self, inputs: Mapping[str, Any], context: RunContext) -> Mapping[str, Any]:
         p = self.parameters
-        grid = TimeGrid.from_sample_rate(p["n_samples"], p["sample_rate"])
+        if p["timing_source"] == "layout":
+            grid = require_layout(context, self.name).grid()
+            if abs(p["frequency_offset"]) >= grid.nyquist_frequency:
+                raise SamplingError(
+                    f"frequency_offset {p['frequency_offset']:g} Hz is outside the layout's "
+                    f"+-fs/2 = +-{grid.nyquist_frequency:g} Hz.",
+                    hint="Reduce the offset or increase samples_per_bit.",
+                )
+            if not frequency_offset_is_periodic(grid, p["frequency_offset"]):
+                context.warn(
+                    Diagnostic(
+                        Severity.WARNING,
+                        "laser.offset_not_periodic",
+                        "frequency_offset is not a multiple of 1/T of the layout window "
+                        "(spectral leakage).",
+                        hint=f"Use a multiple of df = {grid.df:g} Hz.",
+                        source=self.name,
+                    )
+                )
+        else:
+            grid = TimeGrid.from_sample_rate(p["n_samples"], p["sample_rate"])
         field = cw_field(grid, p["power"], p["phase"], p["frequency_offset"])
         return {"out": OpticalSignal(grid, field, self.frequency, {"source": self.name})}
 
 
 class PRBSGenerator(Component):
-    """Maximal-length pseudo-random bit sequence (Fibonacci LFSR, ITU-T O.150 polynomials)."""
+    """Maximal-length pseudo-random bit sequence (Fibonacci LFSR, ITU-T O.150 polynomials).
+
+    With ``timing_source="layout"`` the number of bits and the bit rate come
+    from the global layout and ``n_bits``/``bit_rate`` are ignored.
+    """
 
     type_id = "optobuild.source.prbs"
-    version = "1.0.0"
+    version = "1.1.0"
     display_name = "PRBS generator"
     category = ComponentCategory.SOURCE
     output_ports = (PortSpec("out", SignalKind.DIGITAL, "bit sequence"),)
@@ -162,6 +191,7 @@ class PRBSGenerator(Component):
             minimum_inclusive=False,
             symbol="R_b",
         ),
+        TIMING_SOURCE_SPEC,
     )
 
     @property
@@ -195,12 +225,24 @@ class PRBSGenerator(Component):
 
     def run(self, inputs: Mapping[str, Any], context: RunContext) -> Mapping[str, Any]:
         p = self.parameters
-        bits = prbs(p["order"], self.n_bits, p["seed"] or None)
-        return {
-            "out": DigitalSequence(
-                bits, p["bit_rate"], {meta.PATTERN: f"PRBS{p['order']}", "source": self.name}
-            )
-        }
+        n_bits, bit_rate = self.n_bits, p["bit_rate"]
+        if p["timing_source"] == "layout":
+            layout = require_layout(context, self.name)
+            n_bits, bit_rate = layout.n_bits, layout.bit_rate
+            if n_bits % prbs_period(p["order"]):
+                context.warn(
+                    Diagnostic(
+                        Severity.INFO,
+                        "sampling.pattern_periodicity",
+                        f"Layout n_bits={n_bits} is not a multiple of the PRBS{p['order']} "
+                        f"period {prbs_period(p['order'])}.",
+                        hint="Choose n_bits as a multiple of 2^m - 1.",
+                        source=self.name,
+                    )
+                )
+        bits = prbs(p["order"], n_bits, p["seed"] or None)
+        md = {meta.PATTERN: f"PRBS{p['order']}", "source": self.name}
+        return {"out": DigitalSequence(bits, bit_rate, md)}
 
 
 __all__ = ["CWLaser", "PRBSGenerator"]

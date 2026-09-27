@@ -19,6 +19,7 @@ class _Ctx:
     def __init__(self) -> None:
         self.rng = np.random.default_rng(0)
         self.logger = logging.getLogger("test")
+        self.layout = None
 
     def check_cancelled(self) -> None:
         pass

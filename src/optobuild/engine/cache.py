@@ -1,7 +1,7 @@
 """Result cache keyed by a content hash of each node's computation (ADR-0005).
 
 A node's key hashes (type_id, version, name, canonical parameters, root seed,
-and the keys of the upstream outputs it consumes). Because components are
+layout, trial index, and the keys of the upstream outputs it consumes). Because components are
 deterministic functions of exactly these inputs, an unchanged key implies an
 unchanged result; changing a parameter changes the key of that node and of
 everything downstream, which is the invalidation rule.
@@ -16,10 +16,22 @@ from collections.abc import Mapping
 from typing import Any
 
 from optobuild.components.base import Component
+from optobuild.numerics.layout import SimulationLayout
 
 
-def node_key(component: Component, root_seed: int, inputs: Mapping[str, tuple[str, str]]) -> str:
-    """Hash identifying one node computation; ``inputs`` maps port -> (upstream key, port)."""
+def node_key(
+    component: Component,
+    root_seed: int,
+    inputs: Mapping[str, tuple[str, str]],
+    *,
+    layout: SimulationLayout | None = None,
+    trial: int | None = None,
+) -> str:
+    """Hash identifying one node computation; ``inputs`` maps port -> (upstream key, port).
+
+    The layout and trial index are part of every key: any component may read
+    the layout, and the trial selects the random realization.
+    """
     payload = {
         "type_id": component.type_id,
         "version": component.version,
@@ -27,6 +39,8 @@ def node_key(component: Component, root_seed: int, inputs: Mapping[str, tuple[st
         "parameters": dict(component.parameters),
         "seed": root_seed,
         "inputs": {k: list(v) for k, v in sorted(inputs.items())},
+        "layout": None if layout is None else layout.to_dict(),
+        "trial": trial,
     }
     text = json.dumps(payload, sort_keys=True, default=repr, allow_nan=False)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()

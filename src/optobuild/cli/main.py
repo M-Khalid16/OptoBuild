@@ -22,8 +22,8 @@ from optobuild.cli.demos import DEMOS
 from optobuild.components.registry import builtin_registry
 from optobuild.core.errors import OptoBuildError
 from optobuild.core.log import configure_logging
-from optobuild.engine.executor import FeedForwardExecutor, SimulationResult
-from optobuild.persistence.project import Project, load_project, save_project
+from optobuild.engine.executor import SimulationResult
+from optobuild.persistence.project import Project, load_project, run_project, save_project
 
 
 def _format_value(value: Any) -> str:
@@ -55,7 +55,7 @@ def print_result(result: SimulationResult, out: Any = None) -> None:
 def _run_project(project: Project, seed: int | None) -> SimulationResult:
     for d in project.diagnostics:
         print(f"load: {d}")
-    return FeedForwardExecutor().run(project.graph, seed=project.seed if seed is None else seed)
+    return run_project(project, seed=seed)
 
 
 def build_parser() -> argparse.ArgumentParser:

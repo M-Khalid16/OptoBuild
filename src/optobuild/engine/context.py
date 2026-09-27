@@ -14,6 +14,7 @@ from optobuild.core.diagnostics import Diagnostic
 from optobuild.core.errors import SimulationCancelledError
 from optobuild.core.log import component_logger
 from optobuild.core.rng import component_generator
+from optobuild.numerics.layout import SimulationLayout
 
 
 class CancellationToken:
@@ -64,9 +65,13 @@ class ExecutionContext:
         *,
         cancel: CancellationToken | None = None,
         progress: Callable[[float, str], None] | None = None,
+        layout: SimulationLayout | None = None,
+        trial: int | None = None,
     ) -> None:
         self._name = component_name
         self._seed = root_seed
+        self._layout = layout
+        self._trial = trial
         self._rng: np.random.Generator | None = None
         self._cancel = cancel
         self._progress = progress
@@ -75,10 +80,16 @@ class ExecutionContext:
 
     @property
     def rng(self) -> np.random.Generator:
-        """Generator derived from (root seed, component name); created on first use."""
+        """Generator from (root seed, component name[, trial]); created on first use."""
         if self._rng is None:
-            self._rng = component_generator(self._seed, self._name)
+            extra = () if self._trial is None else (self._trial,)
+            self._rng = component_generator(self._seed, self._name, *extra)
         return self._rng
+
+    @property
+    def layout(self) -> SimulationLayout | None:
+        """Global simulation layout of this run, if any."""
+        return self._layout
 
     @property
     def logger(self) -> logging.Logger:

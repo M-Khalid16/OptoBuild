@@ -11,6 +11,7 @@ from optobuild.persistence.project import (
     loads_project,
     project_from_dict,
     project_to_dict,
+    run_project,
     save_project,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "loads_project",
     "project_from_dict",
     "project_to_dict",
+    "run_project",
     "save_project",
 ]

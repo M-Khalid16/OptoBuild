@@ -26,21 +26,22 @@ import pytest
 from optobuild.analysis.ber import gaussian_error_probability
 from optobuild.cli.demos import optical_link_project
 from optobuild.core.constants import BOLTZMANN_CONSTANT
-from optobuild.engine import FeedForwardExecutor
+from optobuild.persistence import run_project
 
 
 def _link(power: float):  # type: ignore[no-untyped-def]
     p = optical_link_project(
         seed=31, prbs_order=15, samples_per_bit=8, laser_power_w=power, fiber_length_m=20e3
     )
-    return p.graph
+    return p
 
 
 @pytest.mark.parametrize("power", [95e-6, 85e-6, 75e-6])  # BER ~ 1.4e-3 ... 9e-3
 def test_counted_ber_matches_gaussian_theory(power: float) -> None:
-    g = _link(power)
+    project = _link(power)
+    g = project.graph
     g.set_parameters("pin", shot_noise=False, thermal_noise=False)
-    clean = FeedForwardExecutor().run(g, seed=31)
+    clean = run_project(project)
     assert clean.result("ber", "n_errors") == 0
     offset = clean.result("decision", "sampling_offset")
     means = clean.result("decision", "decision_samples")
@@ -56,7 +57,7 @@ def test_counted_ber_matches_gaussian_theory(power: float) -> None:
         threshold_mode="fixed",
         threshold=threshold,
     )
-    noisy = FeedForwardExecutor().run(g, seed=31)
+    noisy = run_project(project)
     assert noisy.result("decision", "sampling_offset") == offset
 
     neb = noisy.result("filter", "noise_equivalent_bandwidth_hz")

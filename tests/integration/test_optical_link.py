@@ -10,7 +10,7 @@ from optobuild.cli.main import main
 from optobuild.core.errors import InvalidGraphError, PortTypeMismatchError
 from optobuild.core.units import db_per_km_to_per_m
 from optobuild.engine import FeedForwardExecutor, ResultCache
-from optobuild.persistence import dumps_project, loads_project
+from optobuild.persistence import dumps_project, loads_project, run_project
 
 ARRAY_RESULTS = [
     ("eye", "traces"),
@@ -22,7 +22,7 @@ ARRAY_RESULTS = [
 @pytest.fixture(scope="module")
 def link_result():  # type: ignore[no-untyped-def]
     project = optical_link_project(seed=7)
-    return project, FeedForwardExecutor().run(project.graph, seed=project.seed)
+    return project, run_project(project)
 
 
 def test_link_runs_and_measurements_are_consistent(link_result) -> None:  # type: ignore[no-untyped-def]
@@ -41,16 +41,16 @@ def test_link_runs_and_measurements_are_consistent(link_result) -> None:  # type
 
 
 def test_noiseless_back_to_back_link_is_error_free() -> None:
-    g = optical_link_project(seed=1, fiber_length_m=0.0).graph
-    g.set_parameters("pin", shot_noise=False, thermal_noise=False, dark_current=0.0)
-    res = FeedForwardExecutor().run(g, seed=1)
+    p = optical_link_project(seed=1, fiber_length_m=0.0)
+    p.graph.set_parameters("pin", shot_noise=False, thermal_noise=False, dark_current=0.0)
+    res = run_project(p)
     assert res.result("ber", "n_errors") == 0
     assert res.result("ber", "alignment_shift_bits") == 0
 
 
 def test_same_seed_reproduces_everything() -> None:
-    a = FeedForwardExecutor().run(optical_link_project(seed=5).graph, seed=5)
-    b = FeedForwardExecutor().run(optical_link_project(seed=5).graph, seed=5)
+    a = run_project(optical_link_project(seed=5))
+    b = run_project(optical_link_project(seed=5))
     assert a.result("ber", "n_errors") == b.result("ber", "n_errors")
     for node, key in ARRAY_RESULTS:
         np.testing.assert_array_equal(a.result(node, key), b.result(node, key))
@@ -58,8 +58,8 @@ def test_same_seed_reproduces_everything() -> None:
 
 
 def test_different_seed_changes_only_noise() -> None:
-    a = FeedForwardExecutor().run(optical_link_project().graph, seed=5)
-    b = FeedForwardExecutor().run(optical_link_project().graph, seed=6)
+    a = run_project(optical_link_project(), seed=5)
+    b = run_project(optical_link_project(), seed=6)
     np.testing.assert_array_equal(a.signal("fiber", "out").field, b.signal("fiber", "out").field)
     assert not np.array_equal(a.signal("pin", "out").samples, b.signal("pin", "out").samples)
 
@@ -67,8 +67,8 @@ def test_different_seed_changes_only_noise() -> None:
 def test_project_round_trip_reproduces_results() -> None:
     project = optical_link_project(seed=11)
     loaded = loads_project(dumps_project(project))
-    a = FeedForwardExecutor().run(project.graph, seed=11)
-    b = FeedForwardExecutor().run(loaded.graph, seed=11)
+    a = run_project(project)
+    b = run_project(loaded)
     for node, key in ARRAY_RESULTS:
         np.testing.assert_array_equal(a.result(node, key), b.result(node, key))
 
@@ -76,10 +76,10 @@ def test_project_round_trip_reproduces_results() -> None:
 def test_changing_the_fiber_reuses_transmitter_cache() -> None:
     cache = ResultCache()
     ex = FeedForwardExecutor(cache)
-    g = optical_link_project().graph
-    ex.run(g, seed=0)
-    g.set_parameters("fiber", length=60e3)
-    res = ex.run(g, seed=0)
+    p = optical_link_project()
+    run_project(p, executor=ex)
+    p.graph.set_parameters("fiber", length=60e3)
+    res = run_project(p, executor=ex)
     hits = {n: r.cache_hit for n, r in res.nodes.items()}
     assert all(hits[n] for n in ("prbs", "nrz", "laser", "mzm", "tx_power", "tx_spectrum"))
     assert not any(hits[n] for n in ("fiber", "pin", "filter", "decision", "ber", "eye"))
@@ -88,10 +88,10 @@ def test_changing_the_fiber_reuses_transmitter_cache() -> None:
 def test_inconsistent_sampling_is_reported() -> None:
     from optobuild.core.errors import ComponentExecutionError
 
-    g = optical_link_project().graph
-    g.set_parameters("laser", n_samples=1000)
+    p = optical_link_project()
+    p.graph.set_parameters("laser", timing_source="parameters", n_samples=1000)
     with pytest.raises(ComponentExecutionError, match="Incompatible sampling"):
-        FeedForwardExecutor().run(g)
+        run_project(p)
 
 
 def test_wrong_wiring_is_rejected() -> None:
