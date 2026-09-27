@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "optobuild"
-version = "0.1.0"
+version = "0.2.0"
 description = "Scientifically validated optical and photonics simulation platform (foundation phase)."
 readme = "README.md"
 license = { text = "MIT" }
