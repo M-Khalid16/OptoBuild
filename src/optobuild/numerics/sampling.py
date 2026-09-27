@@ -66,6 +66,21 @@ def occupied_bandwidth(x: ArrayLike, grid: TimeGrid, fraction: float = 0.99) -> 
     return 2.0 * float(f[order][min(idx, len(f) - 1)])
 
 
+def time_edge_energy_fraction(x: ArrayLike, edge_fraction: float = 0.05) -> float:
+    """Fraction of energy in the first and last ``edge_fraction`` of the window."""
+    arr = np.asarray(x)
+    p = (
+        np.sum(np.abs(arr) ** 2, axis=tuple(range(arr.ndim - 1)))
+        if arr.ndim > 1
+        else np.abs(arr) ** 2
+    )
+    total = float(p.sum())
+    if total == 0.0:
+        return 0.0
+    k = max(1, int(edge_fraction * p.size))
+    return float((p[:k].sum() + p[-k:].sum()) / total)
+
+
 def samples_per_symbol_diagnostic(samples_per_symbol: int, source: str = "") -> Diagnostic | None:
     """Warn for fewer than 4 samples per symbol (filters and eye diagrams become coarse)."""
     if samples_per_symbol >= 4:
@@ -85,5 +100,6 @@ __all__ = [
     "aliasing_diagnostic",
     "band_edge_energy_fraction",
     "occupied_bandwidth",
+    "time_edge_energy_fraction",
     "samples_per_symbol_diagnostic",
 ]
