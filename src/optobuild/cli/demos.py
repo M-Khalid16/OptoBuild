@@ -198,4 +198,57 @@ def soliton_project(
 
 DEMOS["soliton"] = soliton_project
 
-__all__ = ["DEMOS", "optical_link_project", "reference_project", "soliton_project"]
+
+def fso_link_project(
+    seed: int = 7,
+    *,
+    distance_m: float = 1.5e3,
+    cn2: float = 5e-14,
+    visibility_m: float = 4e3,
+    prbs_order: int = 11,
+) -> Project:
+    """10 Gb/s NRZ-OOK over a free-space link (Phase 5): the reference link with the
+    fiber replaced by an FSO channel (Gamma-Gamma turbulence, haze, pointing jitter).
+
+    Each Monte Carlo trial draws one quasi-static channel state
+    (``optobuild ber demo:fso_link --trials N``).
+    """
+    from optobuild.components.fso import FSOChannel
+
+    p = optical_link_project(seed=seed, prbs_order=prbs_order, laser_power_w=10e-3)
+    g = p.graph
+    g.remove("fiber")
+    g.add(
+        FSOChannel(
+            "fso",
+            {
+                "distance": distance_m,
+                "beam_waist": 0.01,
+                "divergence": 0.5e-3,
+                "aperture_diameter": 0.1,
+                "tx_efficiency": 10**-0.1,
+                "rx_efficiency": 10**-0.1,
+                "visibility": visibility_m,
+                "pointing_jitter": 50e-6,
+                "turbulence": "gamma_gamma",
+                "cn2": cn2,
+                "beam_wander": True,
+            },
+        )
+    )
+    g.connect("mzm", "optical_out", "fso", "in")
+    g.connect("fso", "out", "pin", "in")
+    g.connect("fso", "out", "rx_power", "in")
+    p.metadata["title"] = "10 Gb/s NRZ-OOK free-space optical link"
+    return p
+
+
+DEMOS["fso_link"] = fso_link_project
+
+__all__ = [
+    "DEMOS",
+    "fso_link_project",
+    "optical_link_project",
+    "reference_project",
+    "soliton_project",
+]

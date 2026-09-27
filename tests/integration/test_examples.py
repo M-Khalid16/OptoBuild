@@ -37,3 +37,14 @@ def test_optical_link_example_script_runs(capsys) -> None:  # type: ignore[no-un
     module.main(["--no-save", "--length-km", "0"])
     out = capsys.readouterr().out
     assert "counted errors" in out and "TX power" in out
+
+
+def test_fso_example_runs(capsys) -> None:  # type: ignore[no-untyped-def]
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fso_example", EXAMPLES / "fso_link.py")
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    module.main(["--trials", "5"])
+    out = capsys.readouterr().out
+    assert "link margin" in out and "analytic" in out

@@ -73,6 +73,30 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", help="run a project file (.json/.yaml)")
     p_run.add_argument("project")
     p_run.add_argument("--seed", type=int, default=None, help="override the project seed")
+    p_fso = sub.add_parser(
+        "fso-budget",
+        help="free-space optical link budget, margin and outage",
+        description="Quantities take units, e.g. --distance '2 km' --tx-power '10 dBm'.",
+    )
+    for flag, default in (
+        ("--distance", "1 km"),
+        ("--wavelength", "1550 nm"),
+        ("--tx-power", "10 dBm"),
+        ("--sensitivity", "-30 dBm"),
+        ("--waist", "10 mm"),
+        ("--divergence", "1 mrad"),
+        ("--aperture", "8 cm"),
+        ("--visibility", "0 km"),
+        ("--rain", "0 mm/h"),
+        ("--offset", "0 urad"),
+        ("--jitter", "0 urad"),
+        ("--tx-loss", "0 dB loss"),
+        ("--rx-loss", "0 dB loss"),
+    ):
+        p_fso.add_argument(flag, default=default)
+    p_fso.add_argument("--turbulence", default="none", choices=["none", "lognormal", "gamma_gamma"])
+    p_fso.add_argument("--cn2", type=float, default=0.0, help="[m^-2/3]")
+    p_fso.add_argument("--beam-wander", action="store_true")
     p_gui = sub.add_parser("gui", help="start the graphical editor (needs optobuild[gui])")
     p_gui.add_argument("project", nargs="?", help="project file or demo:<name>")
     p_ber = sub.add_parser("ber", help="accumulate BER over Monte Carlo noise trials")
@@ -96,6 +120,38 @@ def _report(project: Project, args: argparse.Namespace) -> None:
         from optobuild.persistence.results import save_results
 
         print(f"saved results to {save_results(result, args.save_results, project=project)}")
+
+
+def _fso_budget(args: argparse.Namespace) -> int:
+    import math
+
+    from optobuild.analysis.link_budget import fso_link_budget
+    from optobuild.core.units import parse_to_si
+    from optobuild.physics.fso_channel import FSOChannelModel
+
+    q = parse_to_si
+    visibility = q(args.visibility, expect="length")
+    model = FSOChannelModel(
+        distance=q(args.distance, expect="length"),
+        wavelength=q(args.wavelength, expect="length"),
+        beam_waist=q(args.waist, expect="length"),
+        divergence=q(args.divergence, expect="angle"),
+        aperture_diameter=q(args.aperture, expect="length"),
+        tx_efficiency=q(args.tx_loss, expect="ratio"),
+        rx_efficiency=q(args.rx_loss, expect="ratio"),
+        visibility=visibility if visibility > 0 else math.inf,
+        rain_rate=q(args.rain, expect="rain_rate"),
+        pointing_offset=q(args.offset, expect="angle"),
+        pointing_jitter=q(args.jitter, expect="angle"),
+        turbulence=args.turbulence,
+        cn2=args.cn2,
+        beam_wander=args.beam_wander,
+    )
+    budget = fso_link_budget(
+        model, q(args.tx_power, expect="power"), q(args.sensitivity, expect="power")
+    )
+    print(budget.table())
+    return 0
 
 
 def _ber(args: argparse.Namespace) -> int:
@@ -143,6 +199,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "ber":
             return _ber(args)
+        if args.command == "fso-budget":
+            return _fso_budget(args)
         if args.command == "gui":
             try:
                 from optobuild.gui.qt.mainwindow import main as gui_main
