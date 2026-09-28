@@ -16,6 +16,28 @@ SAMPLES_PER_BIT = "samples_per_bit"
 """Integer samples per bit of a sampled waveform."""
 PATTERN = "pattern"
 """Human-readable description of the bit pattern (e.g. 'PRBS7')."""
+SYMBOL_RATE = "symbol_rate"
+"""Symbol rate R_s [Bd] of a sampled waveform carrying symbols."""
+SAMPLES_PER_SYMBOL = "samples_per_symbol"
+"""Integer samples per symbol of a sampled waveform."""
+MODULATION = "modulation"
+"""Constellation name, e.g. 'qpsk', '16qam' (analysis.constellations)."""
+PULSE_ROLLOFF = "pulse_rolloff"
+"""Roll-off factor of the (root-)raised-cosine transmit pulse."""
+CARRIER_WAVELENGTH = "carrier_wavelength"
+"""Vacuum wavelength [m] of the optical carrier a detected signal came from."""
+
+
+def require_symbol_timing(metadata: Mapping[str, Any], who: str) -> tuple[float, int]:
+    """Return (symbol_rate, samples_per_symbol) from metadata or raise with a hint."""
+    try:
+        return float(metadata[SYMBOL_RATE]), int(metadata[SAMPLES_PER_SYMBOL])
+    except KeyError:
+        raise SignalTypeError(
+            f"'{who}' needs the signal's symbol timing ('{SYMBOL_RATE}', "
+            f"'{SAMPLES_PER_SYMBOL}' metadata), which this signal does not carry.",
+            hint="Drive the link from a pulse shaper, which annotates its waveforms.",
+        ) from None
 
 
 def require_timing(metadata: Mapping[str, Any], who: str) -> tuple[float, int]:
@@ -30,4 +52,15 @@ def require_timing(metadata: Mapping[str, Any], who: str) -> tuple[float, int]:
         ) from None
 
 
-__all__ = ["BIT_RATE", "PATTERN", "SAMPLES_PER_BIT", "require_timing"]
+__all__ = [
+    "BIT_RATE",
+    "CARRIER_WAVELENGTH",
+    "MODULATION",
+    "PATTERN",
+    "PULSE_ROLLOFF",
+    "SAMPLES_PER_BIT",
+    "SAMPLES_PER_SYMBOL",
+    "SYMBOL_RATE",
+    "require_symbol_timing",
+    "require_timing",
+]

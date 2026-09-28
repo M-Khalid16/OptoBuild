@@ -110,3 +110,21 @@ def test_require_same_grid() -> None:
     require_same_grid(a, ElectricalSignal(G.with_t0(1e-9), np.zeros(8)))
     with pytest.raises(SamplingError, match="Incompatible"):
         require_same_grid(a, ElectricalSignal(TimeGrid(8, 2e-12), np.zeros(8)))
+
+
+def test_symbol_sequence() -> None:
+    from optobuild.signals import SymbolSequence
+
+    s = SymbolSequence(np.array([1 + 1j, -1 - 1j]) / np.sqrt(2), 32e9, {"modulation": "qpsk"})
+    assert s.kind is SignalKind.SYMBOLS and s.n_symbols == 2
+    assert s.symbol_period == pytest.approx(1 / 32e9)
+    assert s.average_energy() == pytest.approx(1.0)
+    with pytest.raises(ValueError):
+        s.symbols[0] = 0
+    assert "qpsk" in repr(s)
+    for bad in (np.array([]), np.ones((3, 4)), np.array([np.nan])):
+        with pytest.raises(SamplingError):
+            SymbolSequence(bad, 1e9)
+    with pytest.raises(SamplingError):
+        SymbolSequence(np.ones(3), 0.0)
+    assert SymbolSequence(np.ones((2, 5)), 1e9).n_symbols == 5
