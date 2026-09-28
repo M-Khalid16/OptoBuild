@@ -1,8 +1,8 @@
 # Signal model
 
 Status: **implemented in Phase 1** for `OpticalSignal`, `ElectricalSignal`
-and `DigitalSequence` (`optobuild.signals`). `SymbolSequence`,
-`SymbolSequence` (Phase 6). `NoiseRepresentation` (tracked noise),
+and `DigitalSequence` (`optobuild.signals`), and `SymbolSequence` (Phase 6;
+shape `(n,)` or `(2, n)` for dual polarization, Phase 6b). `NoiseRepresentation` (tracked noise),
 `ComplexEnvelope` as a separate base class and `PulseTrain` are specified
 here but **not yet implemented**; they
 are added when the first component needs them. Decisions: ADR-0001
@@ -85,8 +85,11 @@ Key consequences:
 * WDM (later): one `OpticalSignal` whose `f_ref` is the band centre and whose
   sampling rate covers all channels; each channel is frequency-shifted onto
   the common grid by an explicit multiplexer component.
-* Scalar (`n_pol = 1`) signals are the Phase 2 default. Components that are
-  polarization-sensitive (Phase 6 coherent systems) must require `n_pol = 2`.
+* Scalar (`n_pol = 1`) signals are the Phase 2 default: one fully polarized
+  state whose orientation matters only where a component resolves
+  polarization (a PBS takes it as a parameter). Polarization-transforming
+  components (controller, PMD) require `n_pol = 2`; a PBC builds such a
+  field from two scalar signals (Phase 6b, ADR-0017).
 
 ### Time reference and delay
 

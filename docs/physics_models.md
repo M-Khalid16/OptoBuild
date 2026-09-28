@@ -1,6 +1,6 @@
 # Physics models
 
-Status: **Phase 2, 4, 5 and 6 (single-polarization) models implemented and validated** (v0.7.0). Later-phase
+Status: **Phase 2, 4, 5, 6 and 6b models implemented and validated** (v0.8.0). Later-phase
 models are listed in §2 as *not started*; nothing here describes code that
 does not exist.
 
@@ -335,7 +335,8 @@ at the window edges.
 3. Ideal hybrid, identical diodes, aligned single-pol LO.
 4. Gaussian shot-noise regime.
 5. Four square-law detections reusing `photocurrent` / `pin_noise`.
-6. No hybrid imbalance, no finite CMRR, no bandwidth limit.
+6. Hybrid phase error ε and quadrature gain g (v1.1, sec. 3.21); no finite
+   CMRR, no bandwidth limit.
 7. Kikuchi, JLT 34, 157 (2016).
 8. Noiseless identity (1e-15); per-quadrature variance
    `(2qR(P_s+P_lo)/2 + 8kT/R_L)·fs/2` (5σ); end-to-end
@@ -350,7 +351,7 @@ at the window edges.
 3. Square-QAM/BPSK symmetry; |Δf| < R_s/8; sps ≥ 3 for Oerder–Meyr.
 4. Laser linewidth × T ≲ 1e-4 (QPSK), smaller for 16-QAM.
 5. Two-pass FOE around the matched filter (ADR-0016).
-6. No adaptive equalizer (needed for PMD, 6b); β3 not compensated;
+6. Single-pol DSP has no adaptive equalizer (dual-pol: sec. 3.21); β3 not compensated;
    rotation ambiguity resolved with the reference.
 7. Oerder & Meyr, IEEE Trans. Commun. 36, 605 (1988); Pfau et al., JLT 27, 989 (2009).
 8. `test_coherent_dsp.py`: FOE within 1e-6 R_s; BPS < 0.2 dB vs ideal phase;
@@ -359,11 +360,59 @@ at the window edges.
    QPSK BER and 16-QAM SER within Poisson bands of the exact values;
    80 km CD compensation with 1 GHz LO offset; receiver noise; phase noise.
 
+### 3.20 Polarization optics and PMD — `physics.polarization`
+
+1. `U(θ, φ) = [[cos θ, −sin θ e^{−iφ}], [sin θ e^{iφ}, cos θ]]`; waveplate
+   `R(−θ) diag(e^{−iδ/2}, e^{iδ/2}) R(θ)`; DGD `D(ω) = diag(e^{−iωτ/2}, e^{iωτ/2})`;
+   PMD `J(ω) = D_N U_N … D_1 U_1` with Haar-random `U_k`, `E[τ²] = Σ τ_k²`,
+   Maxwellian mean `⟨τ⟩ = √(8/3π) √E[τ²]`; DGD by eigenanalysis
+   `τ = |arg(ρ₁/ρ₂)|/Δω` of `J(ω+Δω) J(ω)^H`.
+2. θ, φ, δ [rad]; τ [s]; ω [rad/s] baseband.
+3. Lossless (no PDL); frequency-independent coupling and section DGD; static.
+4. Maxwellian only for many sections (finite N: random flight; sec. 8).
+5. Per-bin 2×2 product in the frequency domain (one FFT pair per polarization).
+6. No PDL, no temporal SOP drift, no higher-order PMD beyond the section model.
+7. Foschini & Poole, JLT 9, 1439 (1991); Gordon & Kogelnik, PNAS 97, 4541
+   (2000); Heffner, IEEE PTL 4, 1066 (1992).
+8. `tests/validation/test_polarization.py`: SU(2) properties, λ/2 and λ/4
+   plates; Haar isotropy (Stokes moments, 5σ); DGD pulse centroids ±τ/2
+   (exact); aligned/crossed/orthogonal section sums; `E[τ²] = N τ_s²` over
+   3000 fibres (5σ); mean DGD vs an independent 3-D random-flight simulation.
+
+### 3.21 Dual-polarization receiver DSP and hybrid impairments — `analysis.coherent_dsp`, `physics.detection`
+
+1. Hybrid with phase error ε, Q gain g: `i_Q = gR Im(z e^{−iε})`; skew: Q
+   delayed by τ (`delay_samples`). GSOP: `I' = I/√P_I`,
+   `Q' = (Q − ⟨IQ⟩I/P_I)/√P_Q'`. 2×2 butterfly
+   `z_p[k] = Σ_q Σ_m W_pqm y_q[2k+m−h]`, update `W_p ← W_p − μ e_p z_p y*`,
+   `e_p = |z_p|² − R` (CMA: `R = E|s|⁴/E|s|²`; RDE: nearest ring). FOE on
+   both outputs (summed 4th-power spectra).
+2. ε [rad]; g [1]; τ [s]; μ [1] for unit-power input.
+3. Unitary channel (for the orthogonal y initialization), static over the
+   window, i.i.d. symbols (blind statistics), T/2 sampling.
+4. Equalizer span 15 taps at T/2 (≈ ±3.5 symbols) for DGD + residual ISI;
+   |Δf| < R_s/8.
+5. Offline block training (6 passes, 2 x-only, last at μ/4), then frozen taps;
+   two-pass FOE around the matched filter (ADR-0017).
+6. Blind DP-64QAM convergence unreliable; PRBS whose recurrence spans < 3
+   symbols (e.g. PRBS15 with 64-QAM) misleads blind equalization (diagnostic
+   `dsp.prbs_order_too_low`); no training/pilots, no PDL.
+7. Godard, IEEE Trans. Commun. 28, 1867 (1980); Kikuchi, JLT 34, 157 (2016);
+   Fatadin et al., IEEE PTL 20, 1733 (2008).
+8. `tests/validation/test_dual_pol_dsp.py`: CMA inverts rotations incl. the
+   equal-mixing state and 1.5-symbol DGD (SNR within 5σ + 0.1 dB of Es/N0,
+   distinct sources), RDE for 16-QAM, GSOP exactness, joint FOE.
+   `test_dp_coherent_link.py`: SNR = `2 B_ref OSNR/(2 R_s)` with random SOP and
+   with 80 km CD + PMD + LO offset; DP-QPSK BER Poisson band; DP-16QAM;
+   GSOP + deskew restore the unimpaired SNR (±0.01 dB).
+
 ## 4. References
 
 * G. P. Agrawal, *Nonlinear Fiber Optics*, 6th ed., Academic Press, 2019.
 * G. P. Agrawal, *Fiber-Optic Communication Systems*, 5th ed., Wiley, 2021.
 * B. E. A. Saleh, M. C. Teich, *Fundamentals of Photonics*, 3rd ed., Wiley, 2019.
+* D. N. Godard, "Self-recovering equalization and carrier tracking in two-dimensional data communication systems," *IEEE Trans. Commun.* 28, 1867 (1980).
+* G. J. Foschini, C. D. Poole, "Statistical theory of polarization dispersion in single mode fibers," *J. Lightwave Technol.* 9, 1439 (1991).
 * J. G. Proakis, M. Salehi, *Digital Communications*, 5th ed., McGraw-Hill, 2008.
 * A. V. Oppenheim, A. S. Willsky, *Signals and Systems*, 2nd ed., Prentice Hall, 1997.
 * W. E. Thomson, "Delay networks having maximally flat frequency characteristics," *Proc. IEE* 96 (1949).

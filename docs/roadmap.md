@@ -127,14 +127,25 @@ fading, slant paths with Cn²(h), snow, angle-of-arrival.
 * Validation against exact AWGN theory, the OSNR→SNR relation, receiver-noise
   theory and synthetic DSP tests.
 
-Status: complete (v0.7.0). **Phase 6b (next):** dual polarization
-(PBS/PBC, 2×2 CMA/LMS equalizer, PMD), plus I/Q skew and hybrid imbalance.
+Status: complete (v0.7.0).
+
+## Phase 6b — Dual-polarization coherent systems ✅
+
+* Jones-matrix optics: PBS/PBC, polarization controller with DGD, random PMD
+  (waveplate model) with DGD eigenanalysis.
+* Hybrid phase/amplitude imbalance and I/Q skew in the receiver; GSOP and
+  deskew in the DSP.
+* Dual-polarization DSP: joint timing, 2×2 CMA/RDE butterfly equalizer with
+  singularity-free initialization, two-pass FOE, BPS; analyzer with
+  polarization-swap resolution; DP demo and example (ADR-0017).
+
+Status: complete (v0.8.0). Known limitation: blind DP-64QAM convergence is
+unreliable (needs training/pilot-aided equalization, deferred).
 
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 6b | Dual-polarization coherent systems, adaptive MIMO equalization, PMD |
 | 7 | Photonic circuit simulation (transfer/S-matrix) |
 | 8 | CW, semiconductor and fiber laser modelling |
 | 9 | Ultrafast pulse propagation and mode-locked cavities (iterative executor) |

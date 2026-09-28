@@ -59,6 +59,8 @@ cannot pass unnoticed.
 | HDF5 results round trip | bit-exact signals and results | ✅ `tests/integration/test_results_hdf5.py` |
 | SSFM: linear limit, exact SPM, SPM sign, solitons (N = 1, N = 2 closed form), order 2, energy | analytic | ✅ `tests/validation/test_ssfm.py` |
 | FSO: aperture collection, Kim/Koschmieder, rain, Rytov, log-normal and Gamma-Gamma statistics, channel mean/outage vs Monte Carlo | closed form, independent quadrature, Monte Carlo | ✅ `tests/validation/test_fso_physics.py`, `tests/integration/test_fso_component.py` |
+| Polarization: SU(2) elements, Haar isotropy, DGD centroids and eigenanalysis, PMD second moment and random flight | exact, Monte Carlo, independent simulation | ✅ `tests/validation/test_polarization.py` |
+| Dual-pol DSP and link: CMA/RDE vs known channels, GSOP, joint FOE; DP SNR/BER vs OSNR theory with PMD, CD, LO offset; impairment compensation | exact AWGN, closed forms | ✅ `tests/validation/test_dual_pol_dsp.py`, `test_dp_coherent_link.py` |
 | Coherent: constellations, RC/RRC zero ISI, IQ modulator, hybrid receiver noise, phase noise, OSNR, FOE/BPS/timing, end-to-end SNR/BER/SER vs theory | exact AWGN, closed forms, Monte Carlo | ✅ `tests/validation/test_constellations.py`, `test_pulse_shaping.py`, `test_coherent_physics.py`, `test_coherent_dsp.py`, `test_coherent_link.py` |
 
 GUI tests: Qt-free models in `tests/unit/test_gui_*.py`; the Qt views run

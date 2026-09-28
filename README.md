@@ -4,7 +4,13 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 6 complete (v0.7.0)** — single-polarization coherent
+**Current status: Phase 6b complete (v0.8.0)** — dual-polarization coherent
+links: PBS/PBC, polarization controller, random PMD (waveplate model),
+polarization-diverse receiver with hybrid imbalance and I/Q skew, and a DSP
+with GSOP, deskew and a blind 2×2 CMA/RDE equalizer (`optobuild demo
+dp_coherent_link`, `examples/dp_coherent_link.py`). Measured SNR matches
+`2 B_ref OSNR / (2 R_s)` with random polarization, PMD, CD and LO offset;
+blind DP-64QAM is a known limitation (ADR-0017). Phase 6 (v0.7.0) added single-polarization coherent
 links: QPSK/16-QAM/64-QAM, RRC shaping, IQ modulator, laser phase noise,
 OSNR, intradyne receiver, DSP (CD compensation, frequency-offset and timing
 recovery, blind phase search), EVM/SNR/BER analysis and a constellation view

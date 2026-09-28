@@ -4,6 +4,6 @@ The package is organised in strict layers (see docs/architecture.md). Lower
 layers never import higher layers; this is checked by the test suite.
 """
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = ["__version__"]
