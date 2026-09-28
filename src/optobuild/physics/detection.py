@@ -21,6 +21,8 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from optobuild.numerics.fft import apply_transfer_function
+from optobuild.numerics.grid import TimeGrid
 from optobuild.physics.noise import real_white_noise, shot_noise_psd, thermal_noise_psd
 
 
@@ -64,29 +66,34 @@ def coherent_detection(
     thermal: bool = True,
     temperature: float = 300.0,
     load_resistance: float = 50.0,
+    phase_error: float = 0.0,
+    quadrature_gain: float = 1.0,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Ideal 90-degree hybrid + two balanced photodiode pairs.
+    """90-degree hybrid + two balanced photodiode pairs.
 
-    Hybrid outputs (E_s + E_lo)/2, (E_s - E_lo)/2, (E_s + i E_lo)/2, (E_s - i E_lo)/2;
+    Hybrid outputs (E_s + E_lo)/2, (E_s - E_lo)/2, (E_s + c E_lo)/2, (E_s - c E_lo)/2
+    with c = i exp(i eps) (eps = ``phase_error`` [rad], deviation from 90 degrees);
     each photodiode sees P = sum_pol |.|^2 (square law, ``photocurrent``) and
-    its own shot and thermal noise (``pin_noise``). Balanced differences:
+    its own shot and thermal noise (``pin_noise``). The quadrature pair has
+    responsivity g R (g = ``quadrature_gain``, amplitude imbalance).
+    Balanced differences (z = E_s . conj(E_lo), dot = sum over polarizations):
 
-        i_I = R Re(E_s . conj(E_lo)),   i_Q = R Im(E_s . conj(E_lo))
+        i_I = R Re(z),   i_Q = g R Im(z exp(-i eps)) = g R (cos(eps) Im z - sin(eps) Re z)
 
-    (dot = sum over polarizations; single-polarization LO aligned with the
-    signal). Noise per quadrature: one-sided PSD 2 q R (P_s + P_lo)/2 + 2 * 4 k T / R_L.
-    ``rng=None`` gives noiseless currents. Assumptions: ideal hybrid (no
-    phase/amplitude imbalance), identical diodes (infinite CMRR).
-    Reference: Kikuchi, J. Lightwave Technol. 34, 157 (2016).
+    Noise per quadrature: one-sided PSD 2 q R (P_s + P_lo)/2 + 2 * 4 k T / R_L
+    (times g for the shot term of Q). ``rng=None`` gives noiseless currents.
+    Assumptions: identical diodes within a pair (infinite CMRR), otherwise
+    ideal couplers. Reference: Kikuchi, J. Lightwave Technol. 34, 157 (2016).
     """
     es = np.asarray(signal_field, dtype=complex)
     elo = np.asarray(lo_field, dtype=complex)
     if es.shape != elo.shape:
         raise ValueError(f"signal {es.shape} and LO {elo.shape} fields must have equal shapes.")
     currents = []
-    for c in (1.0, -1.0, 1j, -1j):
+    cq = 1j * np.exp(1j * phase_error)
+    for c, r in ((1.0, 1.0), (-1.0, 1.0), (cq, quadrature_gain), (-cq, quadrature_gain)):
         p = np.sum(np.abs(0.5 * (es + c * elo)) ** 2, axis=0)
-        i = photocurrent(p, responsivity)
+        i = photocurrent(p, r * responsivity)
         if rng is not None:
             i = i + pin_noise(
                 rng,
@@ -101,4 +108,13 @@ def coherent_detection(
     return currents[0] - currents[1], currents[2] - currents[3]
 
 
-__all__ = ["coherent_detection", "photocurrent", "pin_noise"]
+def delay_samples(samples: ArrayLike, delay: float, grid: TimeGrid) -> NDArray[np.float64]:
+    """Real signal delayed by ``delay`` [s] (band-limited, circular): F^-1{X exp(-i w delay)}.
+
+    Models I/Q skew (a path-length difference after the photodiodes).
+    """
+    h = np.exp(-1j * grid.angular_frequency() * delay)
+    return np.real(apply_transfer_function(np.asarray(samples, dtype=float), h, grid))
+
+
+__all__ = ["coherent_detection", "delay_samples", "photocurrent", "pin_noise"]
