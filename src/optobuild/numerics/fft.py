@@ -38,6 +38,8 @@ transformed independently. Arrays are in FFT order (DC first); use
 
 from __future__ import annotations
 
+import functools
+
 import numpy as np
 import scipy.fft
 from numpy.typing import ArrayLike, NDArray
@@ -60,7 +62,16 @@ def _as_signal_array(x: ArrayLike, grid: TimeGrid) -> NDArray[np.complexfloating
 def _origin_phase(grid: TimeGrid, sign: float) -> NDArray[np.complex128] | None:
     if grid.t0 == 0.0:
         return None
-    return np.exp(sign * 2j * np.pi * grid.frequency() * grid.t0)
+    return _origin_phase_cached(grid.n_samples, grid.dt, grid.t0, sign)
+
+
+@functools.lru_cache(maxsize=64)
+def _origin_phase_cached(n: int, dt: float, t0: float, sign: float) -> NDArray[np.complex128]:
+    """exp(sign i 2 pi f_k t0), memoized per grid (a pure function of the grid; the
+    array is read-only). Recomputing it cost ~4x the FFT itself (benchmarks/)."""
+    phase = np.exp(sign * 2j * np.pi * TimeGrid(n, dt, t0).frequency() * t0)
+    phase.setflags(write=False)
+    return phase
 
 
 def spectrum(x: ArrayLike, grid: TimeGrid) -> NDArray[np.complex128]:

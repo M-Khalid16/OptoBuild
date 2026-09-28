@@ -11,7 +11,10 @@ point and of the execution order. The same trial indices at every point give
 common random numbers (differences between points are not blurred by
 independent noise), and serial and parallel execution give identical values.
 
-Parallel execution (``workers > 1``) uses separate processes. The project
+Parallel execution (``workers > 1``) uses separate processes started with
+"spawn" (like any spawn-based pool, a calling script must guard its entry
+point with ``if __name__ == "__main__":``); grid points, and trials when there
+are fewer points than workers, are distributed as tasks. The project
 crosses the process boundary as its JSON text (never pickled) and only the
 probed scalars come back; each worker keeps its own result cache.
 Serial execution reuses one cache for all points, so components upstream of
@@ -196,17 +199,30 @@ def sweep(
                 values[p.label][(*idx, t_i)] = v
 
     if workers > 1 and len(points) * len(trial_ids) > 1:
+        # tasks: (point, chunk of trial positions); trials are split when there are fewer
+        # points than workers, so a plain Monte Carlo is parallel too
+        n_chunks = max(1, min(len(trial_ids), -(-workers // len(points))))
+        chunks = [list(range(len(trial_ids)))[k::n_chunks] for k in range(n_chunks)]
         text = dumps_project(project)
         # "spawn": no fork of a possibly multi-threaded parent (GUI), same on every OS
         ctx = multiprocessing.get_context("spawn")
         with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
-            futures = [
-                pool.submit(_worker, text, axes, idx, probes, trial_ids, seed) for idx in points
-            ]
-            for done, (idx, fut) in enumerate(zip(points, futures, strict=True), start=1):
-                store(idx, fut.result())
-                if on_point is not None:
-                    on_point(done, len(points))
+            tasks = [
+                (idx, chunk, pool.submit(_worker, text, axes, idx, probes,
+                                         tuple(trial_ids[i] for i in chunk), seed))
+                for idx in points
+                for chunk in chunks
+            ]  # fmt: skip
+            done_points: dict[tuple[int, ...], int] = {}
+            for idx, chunk, fut in tasks:
+                rows = fut.result()
+                for t_i, row in zip(chunk, rows, strict=True):
+                    for p, v in zip(probes, row, strict=True):
+                        values[p.label][(*idx, t_i)] = v
+                done_points[idx] = done_points.get(idx, 0) + 1
+                if done_points[idx] == len(chunks) and on_point is not None:
+                    on_point(len([k for k, c in done_points.items() if c == len(chunks)]),
+                             len(points))  # fmt: skip
     else:
         work = clone_project(project, registry)
         executor = FeedForwardExecutor(ResultCache())

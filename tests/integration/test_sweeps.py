@@ -73,3 +73,9 @@ def test_sweep_input_errors() -> None:
         sweep(reference_project(), [], [Probe("clean", "samples")])
     with pytest.raises(ValueError, match="at least 2"):
         monte_carlo(reference_project(), [NOISY], 1)
+
+
+def test_parallel_monte_carlo_splits_trials_and_matches_serial() -> None:
+    serial = monte_carlo(reference_project(), [NOISY], 12)
+    parallel = monte_carlo(reference_project(), [NOISY], 12, workers=3)
+    assert serial == parallel
