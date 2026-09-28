@@ -15,7 +15,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from optobuild.core.units import from_si
-from optobuild.signals import DigitalSequence, ElectricalSignal, OpticalSignal
+from optobuild.signals import DigitalSequence, ElectricalSignal, OpticalSignal, SymbolSequence
 
 _PREFIXES = [
     (1e-15, "f"),
@@ -54,6 +54,8 @@ class Curve:
     x_label: str
     y_label: str
     title: str = ""
+    scatter: bool = False
+    """Draw points instead of a line (constellations)."""
 
 
 def eye_curve(results: dict[str, Any], quantity_unit: str = "A") -> Curve:
@@ -118,7 +120,22 @@ def waveform_curve(signal: Any) -> Curve:
         k = np.arange(signal.n_bits + 1, dtype=float)
         y = np.append(signal.bits, signal.bits[-1]).astype(float)
         return Curve(k, y, "bit index", "bit value", "Bit sequence (step)")
+    if isinstance(signal, SymbolSequence):
+        return constellation_curve(signal.symbols.ravel(), "Symbols")
     raise TypeError(f"No waveform view for {type(signal).__name__}.")
+
+
+def constellation_curve(symbols: Any, title: str = "Constellation") -> Curve:
+    """I/Q scatter of complex symbols (dimensionless, unit average energy after DSP)."""
+    s = np.asarray(symbols, dtype=complex).ravel()
+    return Curve(
+        s.real.astype(float),
+        s.imag.astype(float),
+        "in-phase",
+        "quadrature",
+        f"{title} ({s.size} symbols)",
+        scatter=True,
+    )
 
 
 def scalar_rows(result: Any) -> list[tuple[str, str, str]]:
@@ -136,6 +153,7 @@ def scalar_rows(result: Any) -> list[tuple[str, str, str]]:
 __all__ = [
     "SPECTRUM_FLOOR_DBM",
     "Curve",
+    "constellation_curve",
     "engineering_scale",
     "eye_curve",
     "scalar_rows",

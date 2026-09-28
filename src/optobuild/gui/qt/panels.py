@@ -34,7 +34,14 @@ from optobuild.core.units import from_si, to_si
 from optobuild.engine.executor import SimulationResult
 from optobuild.gui.document import ProjectDocument
 from optobuild.gui.forms import FieldModel, WidgetKind, fields_for
-from optobuild.gui.plotdata import Curve, eye_curve, scalar_rows, spectrum_curve, waveform_curve
+from optobuild.gui.plotdata import (
+    Curve,
+    constellation_curve,
+    eye_curve,
+    scalar_rows,
+    spectrum_curve,
+    waveform_curve,
+)
 from optobuild.numerics.layout import SimulationLayout
 
 pg.setConfigOptions(background="w", foreground="k", antialias=False)
@@ -202,7 +209,20 @@ class ParameterPanel(QWidget):
 
 def _plot(widget: pg.PlotWidget, curve: Curve) -> None:
     widget.clear()
-    widget.plot(curve.x, curve.y, pen=pg.mkPen("#1c7ed6", width=1), connect="finite")
+    if curve.scatter:
+        widget.plot(
+            curve.x,
+            curve.y,
+            pen=None,
+            symbol="o",
+            symbolSize=2,
+            symbolPen=None,
+            symbolBrush=pg.mkBrush(28, 126, 214, 120),
+        )
+        widget.getPlotItem().setAspectLocked(True)
+    else:
+        widget.getPlotItem().setAspectLocked(False)
+        widget.plot(curve.x, curve.y, pen=pg.mkPen("#1c7ed6", width=1), connect="finite")
     widget.setLabel("bottom", curve.x_label)
     widget.setLabel("left", curve.y_label)
     widget.setTitle(curve.title)
@@ -252,6 +272,9 @@ class ResultsPanel(QTabWidget):
         self.waveform = _PlotTab()
         self.waveform.selector.currentTextChanged.connect(self._draw_waveform)
         self.addTab(self.waveform, "Waveform")
+        self.constellation = _PlotTab()
+        self.constellation.selector.currentTextChanged.connect(self._draw_constellation)
+        self.addTab(self.constellation, "Constellation")
         self.diagnostics = QListWidget()
         self.addTab(self.diagnostics, "Diagnostics")
 
@@ -268,13 +291,14 @@ class ResultsPanel(QTabWidget):
         self.result = result
         self.table.setRowCount(0)
         self.diagnostics.clear()
-        for tab in (self.eye, self.spectrum, self.waveform):
+        tabs = (self.eye, self.spectrum, self.waveform, self.constellation)
+        for tab in tabs:
             tab.selector.blockSignals(True)
             tab.selector.clear()
             tab.plot.clear()
         if result is None:
             self.status.setText("No results yet. Run the simulation (F5).")
-            for tab in (self.eye, self.spectrum, self.waveform):
+            for tab in tabs:
                 tab.selector.blockSignals(False)
             return
         self.set_stale(False)
@@ -291,13 +315,16 @@ class ResultsPanel(QTabWidget):
                 self.eye.selector.addItem(n)
             if "power_per_rbw_w" in res:
                 self.spectrum.selector.addItem(n)
+            if "constellation" in res:
+                self.constellation.selector.addItem(n)
             for port in result.nodes[n].outputs:
                 self.waveform.selector.addItem(f"{n}.{port}")
-        for tab in (self.eye, self.spectrum, self.waveform):
+        for tab in tabs:
             tab.selector.blockSignals(False)
         self._draw_eye()
         self._draw_spectrum()
         self._draw_waveform()
+        self._draw_constellation()
 
     def _draw_eye(self, *_: Any) -> None:
         name = self.eye.selector.currentText()
@@ -320,9 +347,21 @@ class ResultsPanel(QTabWidget):
         node, port = text.rsplit(".", 1)
         _plot(self.waveform.plot, waveform_curve(self.result.signal(node, port)))
 
+    def _draw_constellation(self, *_: Any) -> None:
+        name = self.constellation.selector.currentText()
+        if self.result is None or not name:
+            return
+        pts = self.result.nodes[name].results["constellation"]
+        _plot(self.constellation.plot, constellation_curve(pts, f"Constellation at {name}"))
+
     def plotted_points(self, tab: str) -> int:
         """Number of finite points currently drawn in a plot tab (for tests)."""
-        widget = {"eye": self.eye, "spectrum": self.spectrum, "waveform": self.waveform}[tab]
+        widget = {
+            "eye": self.eye,
+            "spectrum": self.spectrum,
+            "waveform": self.waveform,
+            "constellation": self.constellation,
+        }[tab]
         items = widget.plot.getPlotItem().listDataItems()
         return int(sum(np.isfinite(i.yData).sum() for i in items if i.yData is not None))
 

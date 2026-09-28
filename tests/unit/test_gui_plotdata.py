@@ -61,3 +61,13 @@ def test_waveforms_and_scalars(result) -> None:  # type: ignore[no-untyped-def]
     rows = scalar_rows(result)
     assert ("ber", "n_bits", "127") in rows
     assert not any(k == "traces" for _, k, _ in rows)
+
+
+def test_constellation_curves() -> None:
+    from optobuild.gui.plotdata import constellation_curve
+    from optobuild.signals import SymbolSequence
+
+    c = constellation_curve(np.array([1 + 1j, -1 - 1j]))
+    assert c.scatter and c.x.tolist() == [1.0, -1.0] and c.y.tolist() == [1.0, -1.0]
+    w = waveform_curve(SymbolSequence(np.array([1j, 1.0]), 1e9))
+    assert w.scatter and w.x.size == 2

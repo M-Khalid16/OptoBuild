@@ -232,3 +232,18 @@ def test_mouse_drag_connects_ports_and_moves_nodes(app: QApplication) -> None:
     doc.undo()
     assert doc.position(b) == (300.0, 0.0)
     w.close()
+
+
+def test_coherent_demo_shows_constellation_and_symbol_waveforms(app: QApplication) -> None:
+    from optobuild.cli.demos import coherent_link_project
+
+    w = MainWindow(ProjectDocument(coherent_link_project(prbs_order=11)))
+    _run(app, w)
+    r = w.results
+    assert r.constellation.selector.currentText() == "analyzer"
+    assert r.plotted_points("constellation") == 2047
+    idx = r.waveform.selector.findText("mapper.symbols")
+    assert idx >= 0
+    r.waveform.selector.setCurrentIndex(idx)  # symbol outputs render as a scatter, no crash
+    assert r.plotted_points("waveform") == 2047
+    w.close()
