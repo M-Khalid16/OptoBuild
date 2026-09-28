@@ -14,6 +14,7 @@ from optobuild.components.coherent import (
     CoherentAnalyzer,
     CoherentDSP,
     CoherentReceiver,
+    DualPolCoherentDSP,
     IQModulator,
     PulseShaper,
     SymbolMapper,
@@ -24,6 +25,12 @@ from optobuild.components.fiber import LinearFiber
 from optobuild.components.fso import FSOChannel
 from optobuild.components.modulators import MachZehnderModulator, NRZGenerator
 from optobuild.components.nonlinear import NonlinearFiber, OpticalPulseSource
+from optobuild.components.polarization import (
+    PolarizationBeamCombiner,
+    PolarizationBeamSplitter,
+    PolarizationController,
+    RandomPMD,
+)
 from optobuild.components.reference import REFERENCE_COMPONENTS
 from optobuild.components.sources import CWLaser, PRBSGenerator
 
@@ -53,6 +60,13 @@ COHERENT_COMPONENTS: tuple[type[Component], ...] = (
     CoherentDSP,
     CoherentAnalyzer,
 )
+POLARIZATION_COMPONENTS: tuple[type[Component], ...] = (
+    PolarizationBeamSplitter,
+    PolarizationBeamCombiner,
+    PolarizationController,
+    RandomPMD,
+    DualPolCoherentDSP,
+)
 
 BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *REFERENCE_COMPONENTS,
@@ -60,6 +74,7 @@ BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *NONLINEAR_COMPONENTS,
     *FSO_COMPONENTS,
     *COHERENT_COMPONENTS,
+    *POLARIZATION_COMPONENTS,
 )
 
 __all__ = [
@@ -68,4 +83,5 @@ __all__ = [
     "FSO_COMPONENTS",
     "NONLINEAR_COMPONENTS",
     "OPTICAL_LINK_COMPONENTS",
+    "POLARIZATION_COMPONENTS",
 ]

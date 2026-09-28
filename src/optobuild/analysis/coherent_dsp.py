@@ -174,9 +174,10 @@ def mimo_equalize(
     samples: ArrayLike,
     fmt: str,
     n_taps: int = 15,
-    step: float = 1e-3,
-    epochs: int = 3,
+    step: float = 2.5e-4,
+    epochs: int = 6,
     radius_directed: bool = False,
+    x_epochs: int = 2,
 ) -> tuple[NDArray[np.complex128], NDArray[np.complex128]]:
     """Blind 2x2 butterfly equalizer, T/2-spaced; returns (symbols (2, n), taps (2, 2, n_taps)).
 
@@ -186,13 +187,20 @@ def mimo_equalize(
 
         W_p <- W_p - mu e_p z_p conj(y),   e_p = |z_p|^2 - R
 
-    with R = R_2 (CMA) or the ring radius nearest to |z_p|^2 (RDE). Epoch 1
-    adapts only output x from centre-tap initialization; output y is then
-    initialized orthogonally, W_yy[m] = conj(W_xx[-m]), W_yx[m] = -conj(W_xy[-m])
-    (the inverse of a unitary channel has this form), which prevents both
-    outputs converging to the same source (CMA singularity). Later epochs adapt
-    both outputs; RDE (if requested) replaces CMA from epoch 2; the last epoch
-    uses mu/4 to reduce the steady-state misadjustment. The returned symbols are
+    with R = R_2 (CMA) or the ring radius nearest to |z_p|^2 (RDE). The first
+    ``x_epochs`` passes adapt only output x from centre-tap initialization;
+    output y is then initialized orthogonally, W_yy[m] = conj(W_xx[-m]),
+    W_yx[m] = -conj(W_xy[-m]) (the inverse of a unitary channel has this form),
+    which prevents both outputs converging to the same source (CMA
+    singularity). The remaining passes adapt both outputs; RDE (if requested)
+    replaces CMA from the second pass; the last pass uses mu/4 to reduce the
+    steady-state misadjustment. Two x-only passes are needed for 16-QAM: after
+    one, the x taps are still noisy and the derived y initialization can fail.
+
+    Blind equalization relies on 4th-order statistics of i.i.d. symbols. A
+    short PRBS mapped to many bits per symbol violates this (its linear
+    recurrence spans m / log2(M) symbols; PRBS15 with 64-QAM fails, a PRBS23
+    segment of the same length converges); see docs/physics_models.md 3.21. The returned symbols are
     computed with the final (frozen) taps over the whole block: offline
     training for a channel that is static over the window.
     """
@@ -201,8 +209,8 @@ def mimo_equalize(
         raise ValueError(f"need shape (2, 2 n) at 2 samples per symbol, got {y.shape}")
     if n_taps % 2 == 0 or n_taps < 1:
         raise ValueError(f"n_taps must be odd and positive, got {n_taps}")
-    if epochs < 2:
-        raise ValueError("mimo_equalize needs at least 2 epochs (x, then both outputs)")
+    if not 1 <= x_epochs < epochs:
+        raise ValueError(f"need 1 <= x_epochs < epochs, got {x_epochs} and {epochs}")
     h = n_taps // 2
     n_sym = y.shape[1] // 2
     padded = np.concatenate([y[:, y.shape[1] - h :], y, y[:, :h]], axis=1)
@@ -214,7 +222,7 @@ def mimo_equalize(
     radii = constant_modulus_radii(fmt)
     for epoch in range(epochs):
         mu = step / 4 if epoch == epochs - 1 else step
-        rows = 1 if epoch == 0 else 2
+        rows = 1 if epoch < x_epochs else 2
         rde = radius_directed and epoch >= 1
         for x in windows:
             z = np.einsum("pqm,qm->p", w[:rows], x)
@@ -224,7 +232,7 @@ def mimo_equalize(
             else:
                 target = r2
             w[:rows] -= (mu * (m2 - target) * z)[:, None, None] * x.conj()[None, :, :]
-        if epoch == 0:
+        if epoch == x_epochs - 1:
             w[1, 1] = np.conj(w[0, 0, ::-1])
             w[1, 0] = -np.conj(w[0, 1, ::-1])
     return np.einsum("pqm,kqm->pk", w, windows), w

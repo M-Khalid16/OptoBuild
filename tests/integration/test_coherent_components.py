@@ -56,8 +56,13 @@ def test_pulse_shaper_outputs_and_metadata(run_component) -> None:  # type: igno
         i.samples[::4] + 1j * q.samples[::4], 0.3 * sym.symbols, atol=1e-12
     )  # RC passes through the symbols
     assert i.metadata["samples_per_symbol"] == 4 and i.metadata["pulse_rolloff"] == 0.2
-    with pytest.raises(SignalTypeError):
-        run_component(PulseShaper("p"), {"symbols": SymbolSequence(np.ones((2, 8)), 1e9)})
+    # dual-polarization symbols: the shaper selects its tributary
+    dual = SymbolSequence(np.vstack([np.ones(8), -1j * np.ones(8)]), 1e9)
+    params = {"pulse": "rc", "amplitude": 1.0}
+    out = run_component(PulseShaper("p", {**params, "polarization": "y"}), {"symbols": dual})[0]
+    np.testing.assert_allclose(out["q"].samples[::4], -1.0, atol=1e-12)
+    out = run_component(PulseShaper("p", params), {"symbols": dual})[0]
+    np.testing.assert_allclose(out["i"].samples[::4], 1.0, atol=1e-12)
 
 
 def test_iq_modulator_delegates_to_physics(run_component) -> None:  # type: ignore[no-untyped-def]
@@ -112,7 +117,7 @@ def test_dsp_and_analyzer_explain_missing_inputs(run_component) -> None:  # type
         run_component(CoherentDSP("d"), {"i": bare, "q": bare})
     a = SymbolSequence(np.ones(8), 1e9, {"modulation": "qpsk"})
     b = SymbolSequence(np.ones(9), 1e9, {"modulation": "qpsk"})
-    with pytest.raises(SamplingError, match="equal length"):
+    with pytest.raises(SamplingError, match="equal shapes"):
         run_component(CoherentAnalyzer("x"), {"received": a, "reference": b})
 
 
