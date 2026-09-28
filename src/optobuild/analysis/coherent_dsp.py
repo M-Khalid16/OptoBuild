@@ -20,6 +20,18 @@ Blocks (applied by ``components.coherent.CoherentDSP`` in this order):
    the phase track is unwrapped modulo the symmetry angle.
 6. power normalization to unit average energy.
 
+Dual polarization (``components.coherent.DualPolCoherentDSP``): after
+matched filtering and timing, the two received polarizations at 2 samples
+per symbol pass a 2x2 butterfly FIR equalizer (``mimo_equalize``) that
+inverts polarization rotation, PMD and residual linear ISI, adapted blindly
+by the constant-modulus algorithm (CMA, Godard 1980; Kikuchi, J. Lightwave
+Technol. 34, 157 (2016)), optionally followed by the radius-directed
+equalizer (RDE) for multi-ring QAM. FOE (4th power, spectra of both outputs
+summed) and BPS follow per polarization. I/Q imbalance of the hybrid is
+removed by Gram-Schmidt orthogonalization (``gram_schmidt_orthogonalize``,
+Fatadin et al., IEEE Photon. Technol. Lett. 20, 1733 (2008)) and a known
+I/Q skew by a fractional delay.
+
 The residual rotation ambiguity (multiples of pi/2 for square QAM, pi for
 BPSK) is resolved in analysis against the transmitted reference
 (``align_to_reference``), as is customary in simulation; real receivers use
@@ -33,7 +45,7 @@ import math
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from optobuild.analysis.constellations import decide
+from optobuild.analysis.constellations import constellation, decide
 
 SYMMETRY = {"bpsk": math.pi, "qpsk": math.pi / 2, "16qam": math.pi / 2, "64qam": math.pi / 2}
 
@@ -64,10 +76,14 @@ def fractional_advance(samples: ArrayLike, shift_samples: float) -> NDArray[np.c
 
 
 def estimate_frequency_offset(symbols: ArrayLike, symbol_rate: float, zero_pad: int = 8) -> float:
-    """4th-power frequency-offset estimate [Hz] (|df| < R_s/8)."""
-    y = np.asarray(symbols, dtype=complex)
-    n = y.size * zero_pad
-    spec = np.abs(np.fft.fft(y**4, n))
+    """4th-power frequency-offset estimate [Hz] (|df| < R_s/8).
+
+    ``symbols`` of shape (n,) or (n_pol, n); for several rows the magnitude
+    spectra are summed (common carrier offset).
+    """
+    y = np.atleast_2d(np.asarray(symbols, dtype=complex))
+    n = y.shape[-1] * zero_pad
+    spec = np.sum(np.abs(np.fft.fft(y**4, n, axis=-1)), axis=0)
     k = int(np.argmax(spec))
     # parabolic interpolation of the peak (in bins)
     a, b, c = spec[k - 1], spec[k], spec[(k + 1) % n]
@@ -129,6 +145,91 @@ def align_to_reference(
     return shift, k, aligned
 
 
+def gram_schmidt_orthogonalize(
+    in_phase: ArrayLike, quadrature: ArrayLike
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """GSOP: I' = I / sqrt(P_I), Q' = (Q - rho I / P_I) / sqrt(P_Q'), rho = <I Q>.
+
+    Removes hybrid phase error and I/Q amplitude imbalance (both outputs unit power).
+    """
+    i = np.asarray(in_phase, dtype=float)
+    q = np.asarray(quadrature, dtype=float)
+    p_i = float(np.mean(i**2))
+    q = q - float(np.mean(i * q)) / p_i * i
+    return i / math.sqrt(p_i), q / math.sqrt(float(np.mean(q**2)))
+
+
+def constant_modulus_radii(fmt: str) -> NDArray[np.float64]:
+    """Squared ring radii |s|^2 of a unit-energy constellation (ascending)."""
+    return np.unique(np.round(np.abs(constellation(fmt)) ** 2, 12))
+
+
+def cma_radius(fmt: str) -> float:
+    """Godard radius R_2 = E|s|^4 / E|s|^2 of a unit-energy constellation."""
+    a = np.abs(constellation(fmt)) ** 2
+    return float(np.mean(a**2) / np.mean(a))
+
+
+def mimo_equalize(
+    samples: ArrayLike,
+    fmt: str,
+    n_taps: int = 15,
+    step: float = 1e-3,
+    epochs: int = 3,
+    radius_directed: bool = False,
+) -> tuple[NDArray[np.complex128], NDArray[np.complex128]]:
+    """Blind 2x2 butterfly equalizer, T/2-spaced; returns (symbols (2, n), taps (2, 2, n_taps)).
+
+    ``samples``: shape (2, 2 n), two samples per symbol, symbol instants at even
+    indices, power-normalized. Output z_p[k] = sum_q sum_m W[p, q, m] y_q[2k + m - h]
+    (h = n_taps // 2, circular). Stochastic-gradient update per symbol:
+
+        W_p <- W_p - mu e_p z_p conj(y),   e_p = |z_p|^2 - R
+
+    with R = R_2 (CMA) or the ring radius nearest to |z_p|^2 (RDE). Epoch 1
+    adapts only output x from centre-tap initialization; output y is then
+    initialized orthogonally, W_yy[m] = conj(W_xx[-m]), W_yx[m] = -conj(W_xy[-m])
+    (the inverse of a unitary channel has this form), which prevents both
+    outputs converging to the same source (CMA singularity). Later epochs adapt
+    both outputs; RDE (if requested) replaces CMA from epoch 2; the last epoch
+    uses mu/4 to reduce the steady-state misadjustment. The returned symbols are
+    computed with the final (frozen) taps over the whole block: offline
+    training for a channel that is static over the window.
+    """
+    y = np.asarray(samples, dtype=complex)
+    if y.ndim != 2 or y.shape[0] != 2 or y.shape[1] % 2:
+        raise ValueError(f"need shape (2, 2 n) at 2 samples per symbol, got {y.shape}")
+    if n_taps % 2 == 0 or n_taps < 1:
+        raise ValueError(f"n_taps must be odd and positive, got {n_taps}")
+    if epochs < 2:
+        raise ValueError("mimo_equalize needs at least 2 epochs (x, then both outputs)")
+    h = n_taps // 2
+    n_sym = y.shape[1] // 2
+    padded = np.concatenate([y[:, y.shape[1] - h :], y, y[:, :h]], axis=1)
+    win = np.lib.stride_tricks.sliding_window_view(padded, n_taps, axis=1)[:, ::2][:, :n_sym]
+    windows = np.ascontiguousarray(win.transpose(1, 0, 2))  # (n_sym, 2, n_taps)
+    w = np.zeros((2, 2, n_taps), dtype=complex)
+    w[0, 0, h] = w[1, 1, h] = 1.0
+    r2 = cma_radius(fmt)
+    radii = constant_modulus_radii(fmt)
+    for epoch in range(epochs):
+        mu = step / 4 if epoch == epochs - 1 else step
+        rows = 1 if epoch == 0 else 2
+        rde = radius_directed and epoch >= 1
+        for x in windows:
+            z = np.einsum("pqm,qm->p", w[:rows], x)
+            m2 = z.real**2 + z.imag**2
+            if rde:
+                target = radii[np.argmin(np.abs(radii[None, :] - m2[:, None]), axis=1)]
+            else:
+                target = r2
+            w[:rows] -= (mu * (m2 - target) * z)[:, None, None] * x.conj()[None, :, :]
+        if epoch == 0:
+            w[1, 1] = np.conj(w[0, 0, ::-1])
+            w[1, 0] = -np.conj(w[0, 1, ::-1])
+    return np.einsum("pqm,kqm->pk", w, windows), w
+
+
 def evm_rms(received: ArrayLike, reference: ArrayLike) -> float:
     """EVM_rms = sqrt(mean |r - s|^2 / mean |s|^2) (data-aided)."""
     r = np.asarray(received, dtype=complex)
@@ -143,6 +244,10 @@ __all__ = [
     "estimate_timing_offset",
     "fractional_advance",
     "blind_phase_search",
+    "cma_radius",
+    "constant_modulus_radii",
+    "gram_schmidt_orthogonalize",
+    "mimo_equalize",
     "estimate_frequency_offset",
     "evm_rms",
     "normalize_power",
