@@ -159,10 +159,23 @@ Status: complete (v0.9.0). Deferred: mode solver, thermal/electro-optic
 phase-shifter models, apodized/chirped gratings as components, netlists in
 project files, back-reflection feedback in time-domain links.
 
+## Phase 8 — Laser and amplifier modelling ✅
+
+* Semiconductor laser rate equations (gain compression, spontaneous
+  emission, α-factor chirp) with Langevin noise; directly modulated laser
+  component; fixed-step RK4/SDE solver.
+* Two-level EDFA (co-pumped) with ASE and physical noise figure; EDFA
+  component.
+* Erbium fiber ring laser steady state; fiber ring laser source.
+* DML link demo, laser example (ADR-0019).
+
+Status: complete (v0.10.0). Deferred: multimode/side-mode lasers, thermal
+effects, EDFA ASE self-saturation and backward pumping, laser dynamics of
+fiber cavities (Phase 9).
+
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 8 | CW, semiconductor and fiber laser modelling |
 | 9 | Ultrafast pulse propagation and mode-locked cavities (iterative executor) |
 | 10 | Optimization, Monte Carlo, reports, plugins, acceleration |

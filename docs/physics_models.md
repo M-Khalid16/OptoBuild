@@ -1,6 +1,6 @@
 # Physics models
 
-Status: **Phase 2, 4, 5, 6, 6b and 7 models implemented and validated** (v0.9.0). Later-phase
+Status: **Phase 2, 4, 5, 6, 6b, 7 and 8 models implemented and validated** (v0.10.0). Later-phase
 models are listed in §2 as *not started*; nothing here describes code that
 does not exist.
 
@@ -467,6 +467,52 @@ at the window edges.
    first-zero bandwidth; π-shifted grating (solver) vs TMM; quarter-wave
    stack, Fresnel interface, absorption.
 
+### 3.25 Semiconductor laser rate equations — `physics.semiconductor_laser`, `solvers.laser_dynamics`
+
+1. `dN/dt = I/(qV) − N/τ_n − g S`, `dS/dt = Γ g S − S/τ_p + Γ β N/τ_n`,
+   `dφ/dt = (α/2)(Γ v_g a (N − N_tr) − 1/τ_p)`, `g = v_g a (N − N_tr)/(1 + εS)`;
+   `P_out = η hν (S V/Γ)/τ_p`. Closed forms (ε = β = 0): `N_th`, `I_th = qV N_th/τ_n`,
+   slope `η hν/q`, turn-on delay `τ_n ln(I/(I − I_th))`, relaxation
+   `s² + γ_R s + v_g a S₀/τ_p = 0`. Langevin forces (photon/carrier numbers)
+   `D_pp = 2R n_p`, `D_cc = 2(R n_p + n_c/τ_n)`, `D_pc = −2R n_p`,
+   `D_φφ = R/(2n_p)`; Henry `Δν = (1 + α²) R/(4π n_p)`.
+2. N, S [m⁻³], I [A], V [m³], a [m²], ε [m³], τ [s], φ [rad].
+3. Single mode, uniform densities, linear gain and recombination, no
+   thermal effects or parasitics, diffusion approximation for noise.
+4. Above threshold for noise (n_p ≫ 1); ε S ≪ 1.
+5. Fixed-step RK4 (h ≤ τ_p/4) with linearly interpolated current; Ito
+   Euler–Maruyama noise with exact Cholesky factor; DML carrier referenced to
+   the emission frequency at bias (ADR-0019).
+6. No side modes/mode hopping, no nonlinear recombination (B, C), no
+   spectral hole burning beyond ε.
+7. Agrawal, *FOCS* 5th ed. sec. 3.5; Coldren, Corzine & Mashanovitch (2012)
+   ch. 5; Henry, IEEE JQE 18, 259 (1982); Agrawal & Dutta, *Semiconductor
+   Lasers* (1993).
+8. `tests/validation/test_semiconductor_laser.py`: threshold/L-I, fixed
+   points, relaxation to steady state, turn-on delay (0.1 ps), relaxation
+   frequency (1 %) and damping (2 %), RK4 order, chirp identity, Henry =
+   2π FM(0), SDE periodograms (200 × 20 ns) vs linear-response RIN/FM spectra
+   (5σ = 5/√(MB)).
+
+### 3.26 EDFA and erbium fiber ring laser — `physics.edfa`, `solvers.edfa`
+
+1. `n₂ = Σ σ_a Γ Q/A / (1/τ + Σ (σ_a + σ_e) Γ Q/A)`,
+   `dQ_k/dz = n_t Γ_k[(σ_a + σ_e) n₂ − σ_a] Q_k − l Q_k`; ASE
+   `dS/dz = g S + n_t Γ σ_e n₂ hν`; `NF = 1/G + 2S/(G hν)`; Saleh–Jopson
+   `Q_k(L) = Q_k(0) exp(−α_k L + (Q_in − Q_out)/Q_k^sat)`; ring laser
+   `G (1 − T) η = 1`, closed-form output, threshold and slope (l = 0).
+2. Q [photons/s], P [W], σ [m²], A [m²], n_t [m⁻³], τ [s], S [W/Hz].
+3. Two-level, homogeneous, forward beams, no ESA/ion pairs, ASE not in the
+   populations, quasi-static gain at the average power.
+4. ASE power ≪ signal power; cross sections at the operating wavelengths.
+5. RK4 in z (200 steps; error < 1e-7); ring steady state by bisection.
+6. No backward pumping or ASE self-saturation, no spectral ASE model, CW ring.
+7. Giles & Desurvire, JLT 9, 271 (1991); Saleh et al., IEEE PTL 2, 714 (1990);
+   Desurvire, *Erbium-Doped Fiber Amplifiers* (1994).
+8. `tests/validation/test_edfa.py`: vs Saleh–Jopson (1e-7), step convergence,
+   full-inversion gain/NF (2 − 1/G), ring numeric vs closed form (1e-7),
+   threshold and slope. `tests/integration/test_laser_components.py`.
+
 ## 4. References
 
 * G. P. Agrawal, *Nonlinear Fiber Optics*, 6th ed., Academic Press, 2019.
@@ -477,6 +523,8 @@ at the window edges.
 * W. Bogaerts et al., "Silicon microring resonators," *Laser Photonics Rev.* 6, 47 (2012).
 * T. Erdogan, "Fiber grating spectra," *J. Lightwave Technol.* 15, 1277 (1997).
 * H. A. Macleod, *Thin-Film Optical Filters*, 4th ed., CRC Press, 2010.
+* C. H. Henry, "Theory of the linewidth of semiconductor lasers," *IEEE J. Quantum Electron.* 18, 259 (1982).
+* C. R. Giles, E. Desurvire, "Modeling erbium-doped fiber amplifiers," *J. Lightwave Technol.* 9, 271 (1991).
 * J. G. Proakis, M. Salehi, *Digital Communications*, 5th ed., McGraw-Hill, 2008.
 * A. V. Oppenheim, A. S. Willsky, *Signals and Systems*, 2nd ed., Prentice Hall, 1997.
 * W. E. Thomson, "Delay networks having maximally flat frequency characteristics," *Proc. IEE* 96 (1949).

@@ -4,7 +4,12 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 7 complete (v0.9.0)** — photonic circuits:
+**Current status: Phase 8 complete (v0.10.0)** — laser and amplifier
+models: semiconductor-laser rate equations with gain compression, α-factor
+chirp and Langevin noise (RIN, Henry linewidth) as a directly modulated
+laser; a two-level EDFA whose gain and noise figure follow from the erbium
+inversion; an erbium fiber ring laser (`optobuild demo dml_link`,
+`examples/lasers.py`). Phase 7 (v0.9.0) added photonic circuits:
 waveguides, directional couplers, all-pass and add-drop microrings, MZIs and
 Bragg gratings (coupled-mode theory, checked against a thin-film
 transfer-matrix method), an S-matrix netlist solver for circuits with

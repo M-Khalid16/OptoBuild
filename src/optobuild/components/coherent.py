@@ -240,8 +240,8 @@ class ASENoiseLoader(Component):
     added so that OSNR = P_out / (N_ase,total B_ref) (both polarizations): the
     co-polarized half N = P_out / (2 OSNR B_ref) is added to each polarization
     present. P_out is the measured average output signal power. The OSNR is a
-    specification here; deriving it from a noise figure belongs to an amplifier
-    model (Phase 8).
+    specification here; for gain and noise derived from the erbium inversion
+    use ``components.lasers.ErbiumDopedFiberAmplifier``.
     """
 
     type_id = "optobuild.amplifier.ase_noise_loader"
