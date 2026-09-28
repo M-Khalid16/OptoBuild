@@ -44,6 +44,7 @@ from optobuild.components.polarization import (
 )
 from optobuild.components.reference import REFERENCE_COMPONENTS
 from optobuild.components.sources import CWLaser, PRBSGenerator
+from optobuild.components.ultrafast import Autocorrelator, ModeLockedFiberLaser, UltrafastFiber
 
 OPTICAL_LINK_COMPONENTS: tuple[type[Component], ...] = (
     PRBSGenerator,
@@ -83,6 +84,11 @@ LASER_COMPONENTS: tuple[type[Component], ...] = (
     ErbiumDopedFiberAmplifier,
     FiberRingLaser,
 )
+ULTRAFAST_COMPONENTS: tuple[type[Component], ...] = (
+    UltrafastFiber,
+    ModeLockedFiberLaser,
+    Autocorrelator,
+)
 PHOTONIC_COMPONENTS: tuple[type[Component], ...] = (
     AllPassRing,
     AddDropRing,
@@ -99,6 +105,7 @@ BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *POLARIZATION_COMPONENTS,
     *PHOTONIC_COMPONENTS,
     *LASER_COMPONENTS,
+    *ULTRAFAST_COMPONENTS,
 )
 
 __all__ = [
@@ -110,4 +117,5 @@ __all__ = [
     "OPTICAL_LINK_COMPONENTS",
     "PHOTONIC_COMPONENTS",
     "POLARIZATION_COMPONENTS",
+    "ULTRAFAST_COMPONENTS",
 ]
