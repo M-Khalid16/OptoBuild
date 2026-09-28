@@ -17,7 +17,7 @@ from optobuild.components.coherent import (
     SymbolMapper,
 )
 from optobuild.components.sources import CWLaser
-from optobuild.core.errors import SamplingError, SignalTypeError
+from optobuild.core.errors import ComponentExecutionError, SamplingError, SignalTypeError
 from optobuild.numerics.grid import TimeGrid
 from optobuild.persistence import dumps_project, loads_project, run_project
 from optobuild.physics.modulation import iq_modulator_field
@@ -148,3 +148,18 @@ def test_ase_loader_gain(run_component) -> None:  # type: ignore[no-untyped-def]
     out, ctx = run_component(ASENoiseLoader("a", {"osnr": 1e9, "gain": 100.0}), {"in": sig})
     assert out["out"].average_power() == pytest.approx(1e-4, rel=1e-6)
     assert ctx.results["ase_psd_per_pol_w_per_hz"] == pytest.approx(1e-4 / (2e9 * 12.5e9))
+
+
+def test_analyzer_guard_excludes_window_edge_artefacts() -> None:
+    """With non-periodic laser phase noise the first received symbol can be corrupted by
+    the circular window (observed: 1 error at OSNR 18 dB, trial 0, symbol 0); the demos
+    exclude 16 guard symbols at each edge."""
+    p = coherent_link_project(osnr_db=18.0)
+    r = run_project(p, trial=0)
+    assert r.result("analyzer", "bit_errors") == 0
+    assert r.result("analyzer", "n_symbols") == 32767 - 32
+    p.graph.set_parameters("analyzer", guard_symbols=0)
+    assert run_project(p, trial=0).result("analyzer", "bit_errors") == 1
+    p.graph.set_parameters("analyzer", guard_symbols=20000)
+    with pytest.raises(ComponentExecutionError, match="guard_symbols"):
+        run_project(p)

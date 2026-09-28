@@ -741,16 +741,26 @@ def _ratio(signal: float, noise: float) -> float:
     return signal / noise if noise > 0.0 else math.inf
 
 
-def _pol_metrics(received: np.ndarray, reference: np.ndarray, fmt: str) -> dict[str, Any]:
-    """Alignment, least-squares gain, noise power and error counts of one polarization."""
-    shift, rot, r = align_to_reference(received, reference, fmt)
-    s = reference
+def _pol_metrics(
+    received: np.ndarray, reference: np.ndarray, fmt: str, guard: int = 0
+) -> dict[str, Any]:
+    """Alignment, least-squares gain, noise power and error counts of one polarization.
+
+    ``guard`` symbols at each edge of the *received* window are excluded (after
+    alignment, reference index j came from received index (j + shift) mod N).
+    """
+    shift, rot, r_all = align_to_reference(received, reference, fmt)
+    n = received.size
+    pos = (np.arange(n) + shift) % n
+    keep = (pos >= guard) & (pos < n - guard)
+    r, s = r_all[keep], reference[keep]
     c = np.vdot(s, r) / np.vdot(s, s)
     bits_rx, bits_ref = demap_hard(r, fmt), demap_hard(s, fmt)
     return {
         "shift": shift,
         "rot": rot,
-        "r": r,
+        "r": r_all,
+        "n_symbols": int(r.size),
         "signal": float(abs(c) ** 2 * np.mean(np.abs(s) ** 2)),
         "noise": float(np.mean(np.abs(r - c * s) ** 2)),
         "sym_err": int(np.count_nonzero(np.abs(decide(r, fmt) - s) > 1e-9)),
@@ -768,6 +778,11 @@ class CoherentAnalyzer(Component):
     SNR = |c|^2 mean|s|^2 / mean|r - c s|^2 and EVM_rms = 1/sqrt(SNR)
     (unbiased by noise in the power normalization).
 
+    ``guard_symbols`` excludes symbols at both edges of the received window from
+    every metric: the periodic simulation window makes non-periodic effects
+    (laser phase-noise random walk, filter and DSP transients) discontinuous at
+    the edges, which can corrupt the first/last symbols (simulation artefact).
+
     Dual polarization (symbols of shape (2, n)): the output-to-tributary
     assignment (a possible x/y swap after blind equalization) is chosen by the
     larger total correlation; totals pool both polarizations (SNR = sum of
@@ -776,10 +791,19 @@ class CoherentAnalyzer(Component):
     """
 
     type_id = "optobuild.analyzer.coherent"
-    version = "1.1.0"
+    version = "1.2.0"
     display_name = "Coherent analyzer (EVM/BER)"
     category = ComponentCategory.ANALYZER
     input_ports = (PortSpec("received", S, tap=True), PortSpec("reference", S, tap=True))
+    parameter_specs = (
+        ParameterSpec(
+            "guard_symbols",
+            ParameterType.INT,
+            default=0,
+            minimum=0,
+            description="Symbols excluded at each edge of the received window",
+        ),
+    )
 
     def run(self, inputs: Mapping[str, Any], context: RunContext) -> Mapping[str, Any]:
         rx: SymbolSequence = inputs["received"]
@@ -794,12 +818,20 @@ class CoherentAnalyzer(Component):
                 f"Received {rx.symbols.shape} and reference {ref.symbols.shape} symbol "
                 f"sequences must have equal shapes and a known modulation (got {fmt!r})."
             )
+        guard = self.parameters["guard_symbols"]
+        if 2 * guard >= rx.n_symbols:
+            raise SamplingError(
+                f"guard_symbols = {guard} leaves no symbols of {rx.n_symbols} to analyze.",
+                hint="Reduce guard_symbols.",
+            )
         if rx.symbols.ndim == 1:
-            pols = [_pol_metrics(rx.symbols, ref.symbols, fmt)]
+            pols = [_pol_metrics(rx.symbols, ref.symbols, fmt, guard)]
             swapped = False
         else:
-            straight = [_pol_metrics(rx.symbols[p], ref.symbols[p], fmt) for p in range(2)]
-            crossed = [_pol_metrics(rx.symbols[1 - p], ref.symbols[p], fmt) for p in range(2)]
+            straight = [_pol_metrics(rx.symbols[p], ref.symbols[p], fmt, guard) for p in range(2)]
+            crossed = [
+                _pol_metrics(rx.symbols[1 - p], ref.symbols[p], fmt, guard) for p in range(2)
+            ]
 
             # normalized squared correlation |c|^2 P_s / mean|r|^2, bounded in [0, 1]
             def score(ms: list[dict[str, Any]]) -> float:
@@ -813,7 +845,7 @@ class CoherentAnalyzer(Component):
         sym_err = sum(m["sym_err"] for m in pols)
         bit_err = sum(m["bit_err"] for m in pols)
         n_bits = sum(m["n_bits"] for m in pols)
-        n_sym = rx.n_symbols * len(pols)
+        n_sym = sum(m["n_symbols"] for m in pols)
         lo, hi = clopper_pearson(bit_err, n_bits)
         context.record("n_symbols", n_sym)
         context.record("symbol_errors", sym_err)

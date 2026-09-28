@@ -324,7 +324,8 @@ def coherent_link_project(
     )
     g.add(CoherentReceiver("receiver"))
     g.add(CoherentDSP("dsp", {"cd_compensation": d * fiber_length_m}))
-    g.add(CoherentAnalyzer("analyzer"))
+    # exclude the window edges: laser phase noise is not periodic in the window
+    g.add(CoherentAnalyzer("analyzer", {"guard_symbols": 16}))
     for src, sp, dst, dp in (
         ("prbs", "out", "mapper", "bits"),
         ("mapper", "symbols", "shaper", "symbols"),
@@ -444,7 +445,8 @@ def dp_coherent_link_project(
     g.add(CWLaser("lo", {**laser, "linewidth": lo_linewidth, "frequency_offset": lo_offset}))
     g.add(PolarizationBeamSplitter("lo_pbs"))
     g.add(DualPolCoherentDSP("dsp", {"cd_compensation": d * fiber_length_m}))
-    g.add(CoherentAnalyzer("analyzer"))
+    # exclude the window edges: laser phase noise is not periodic in the window
+    g.add(CoherentAnalyzer("analyzer", {"guard_symbols": 16}))
     links = [
         ("prbs", "out", "mapper", "bits"),
         ("tx_laser", "out", "tx_pbs", "in"),
