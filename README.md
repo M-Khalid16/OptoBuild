@@ -4,7 +4,19 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 9 complete (v0.11.0)** — ultrafast optics: a
+**Current status: v1.0.0 — all roadmap phases complete.** Phase 10 added
+studies and tooling: parameter sweeps and Monte Carlo (process-parallel,
+bit-identical to serial), optimization of component parameters,
+self-contained HTML reports, entry-point component plugins and benchmarks:
+
+```bash
+optobuild sweep demo:coherent_link --axis ase.osnr=10,20,40 --probe analyzer.snr_db
+optobuild optimize demo:reference --var gain.gain=-5:5 --minimize clean.rms
+optobuild report demo:coherent_link -o report.html
+python examples/workflows.py
+```
+
+Phase 9 (v0.11.0) added ultrafast optics: a
 generalized NLSE (dispersion to β10, Raman, self-steepening) solved with
 RK4IP, pulse metrology (FWHM, time-bandwidth product, autocorrelation), and a
 round-trip cavity solver with a passively mode-locked soliton fiber laser

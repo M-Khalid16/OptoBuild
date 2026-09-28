@@ -26,5 +26,6 @@ new ADR that *supersedes* the old one.
 | [0018](0018-photonic-circuits.md) | Photonic circuits: S-matrix solver and device components | Accepted |
 | [0019](0019-laser-models.md) | Laser and amplifier models, fixed-step integration | Accepted |
 | [0020](0020-ultrafast-and-cavities.md) | Ultrafast propagation (GNLSE/RK4IP) and cavity iteration | Accepted |
+| [0021](0021-studies-reports-plugins-acceleration.md) | Sweeps, Monte Carlo, optimization, reports, plugins, acceleration | Accepted |
 
 Template: [template.md](template.md).

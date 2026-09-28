@@ -185,8 +185,16 @@ fiber cavities (Phase 9).
 Status: complete (v0.11.0). Deferred: vector GNLSE, noise-seeded
 supercontinuum coherence, distributed gain, graph-level feedback loops.
 
-## Later phases
+## Phase 10 — Studies, reports, plugins, acceleration ✅
 
-| Phase | Topic |
-|---|---|
-| 10 | Optimization, Monte Carlo, reports, plugins, acceleration |
+* Parameter sweeps and generic Monte Carlo (common random numbers,
+  process-parallel with bit-identical results); optimization of component
+  parameters (Brent, Nelder–Mead, Powell); CLI `sweep`, `optimize`, `report`.
+* Self-contained HTML reports (inline SVG) for runs, sweeps and optimizations.
+* Entry-point component plugins (`--plugins`).
+* Benchmarks of the hot paths; memoized FFT origin phase (GNLSE 2.9× faster);
+  Numba deferred with measured criteria (ADR-0021).
+
+Status: complete (v1.0.0). All roadmap phases are implemented; see the
+"Deferred" notes of each phase for known extensions.
+

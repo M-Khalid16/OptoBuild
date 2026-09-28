@@ -130,8 +130,19 @@ obtain the layout with `require_layout(context, name)`.
 instantiate components from project files. Registries are ordinary objects;
 `builtin_registry()` returns a fresh registry holding
 `components.library.BUILTIN_COMPONENTS` (no global mutable singleton).
-Plugins (Phase 10) will register through Python entry points
-(`optobuild.components` group).
+Plugins register through Python entry points (group `optobuild.components`,
+`optobuild.plugins.discovery`, ADR-0021): an installed package exports a
+`Component` subclass or an iterable of them, e.g.
+
+```toml
+[project.entry-points."optobuild.components"]
+my_parts = "my_package.optobuild_plugin:COMPONENTS"
+```
+
+Loading is explicit (`plugin_registry()`, CLI `--plugins`); a plugin that
+fails or reuses an existing `type_id` is reported and skipped. Plugins are
+ordinary Python code: install only packages you trust. Project files never
+name code, only `type_id` strings.
 
 ## 6a. Reference components
 

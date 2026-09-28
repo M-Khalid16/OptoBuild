@@ -71,13 +71,13 @@ It displays results produced by `analysis`/`engine` and edits graphs through
 | `solvers` | linear frequency-domain propagation, SSFM (P4), S-matrix circuits (P7), ODE/SDE, laser dynamics and EDFA (P8), GNLSE (RK4IP) and cavity round-trip iteration (P9) | component metadata |
 | `components` | `Component` ABC (`base`), `PortSpec`/`ParameterSpec` (`spec`), `ComponentRegistry` (`registry`), built-in list (`library`), reference blocks (`reference`), concrete blocks grouped by category | equations (delegate to physics) |
 | `graph` | graph data model, connections, port-kind checking, topology, cycle detection | execution |
-| `engine` | `RunContext` implementation, DAG executor, cache & invalidation, progress, cancellation; later iterative executor | physics |
+| `engine` | `RunContext` implementation, DAG executor, cache & invalidation, progress, cancellation (cavity iteration lives in `solvers.cavity`, ADR-0020) | physics |
 | `persistence` | project JSON/YAML, schema versions & migrations, HDF5 results | pickle of user data |
-| `sweeps`, `optimization` | parameter sweeps, Monte Carlo, optimizers built on the engine | physics |
-| `reporting` | Matplotlib figures, report generation | physics |
+| `sweeps`, `optimization` | parameter sweeps, Monte Carlo (serial or process-parallel), optimizers built on the engine (ADR-0021) | physics |
+| `reporting` | plot curves shared with the GUI (`figures`), dependency-free SVG, HTML reports of runs, sweeps and optimizations | physics |
 | `plugins` | entry-point discovery and registration of third-party components | — |
 | `cli` | command-line entry points | physics |
-| `gui` | Qt-free models (`forms`, `document`, `plotdata`) and PySide6 views (`gui.qt`): schematic editor, auto-generated parameter forms, results viewer (ADR-0013) | physics, solvers, numerics (except the data-only `numerics.layout`) |
+| `gui` | Qt-free models (`forms`, `document`, `plotdata` re-exporting `reporting.figures`) and PySide6 views (`gui.qt`): schematic editor, auto-generated parameter forms, results viewer (ADR-0013) | physics, solvers, numerics (except the data-only `numerics.layout`) |
 
 ## 4. Repository layout
 
