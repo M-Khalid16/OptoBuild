@@ -355,3 +355,124 @@ __all__ = [
     "reference_project",
     "soliton_project",
 ]
+
+
+def dp_coherent_link_project(
+    seed: int = 12,
+    *,
+    modulation: str = "qpsk",
+    symbol_rate: float = 32e9,
+    prbs_order: int = 15,
+    n_bits: int = 0,
+    samples_per_symbol: int = 4,
+    fiber_length_m: float = 80e3,
+    mean_dgd: float = 10e-12,
+    osnr_db: float = 18.0,
+    tx_linewidth: float = 100e3,
+    lo_linewidth: float = 100e3,
+    lo_offset: float = 1e9,
+    rolloff: float = 0.1,
+) -> Project:
+    """Dual-polarization coherent link (Phase 6b)::
+
+    PRBS -> symbol mapper (x, y) -> RRC shapers (x, y) -> IQ modulators (x, y)
+    CW laser -> PBS (45 deg) -> IQ modulators;  IQ modulators -> PBC
+    PBC -> fiber -> random PMD -> amplifier (gain = span loss, output OSNR) -> PBS
+    LO laser (offset) -> PBS (45 deg);  PBS x/y -> coherent receivers (x, y)
+    receivers -> dual-pol DSP (CD comp., matched filter, timing, 2x2 CMA/RDE,
+    FOE, BPS) -> analyzer (reference: mapper)
+
+    ``n_bits = 0`` uses one PRBS period. For 64-QAM use a PRBS23 segment (e.g.
+    ``prbs_order=23, n_bits=6 * 2**15``): a PRBS15 recurrence spans too few
+    symbols for blind equalization (docs/physics_models.md 3.21).
+    """
+    from optobuild.analysis.constellations import bits_per_symbol
+    from optobuild.components.coherent import (
+        ASENoiseLoader,
+        CoherentAnalyzer,
+        CoherentReceiver,
+        DualPolCoherentDSP,
+        IQModulator,
+        PulseShaper,
+        SymbolMapper,
+    )
+    from optobuild.components.fiber import LinearFiber
+    from optobuild.components.polarization import (
+        PolarizationBeamCombiner,
+        PolarizationBeamSplitter,
+        RandomPMD,
+    )
+    from optobuild.components.sources import CWLaser, PRBSGenerator
+    from optobuild.physics.prbs import prbs_period
+
+    k = bits_per_symbol(modulation)
+    n_bits = n_bits or prbs_period(prbs_order)
+    n_symbols = n_bits if n_bits % k else n_bits // k
+    n_samples = n_symbols * samples_per_symbol
+    fs = symbol_rate * samples_per_symbol
+    df_grid = fs / n_samples
+    lo_offset = round(lo_offset / df_grid) * df_grid  # periodic in the window (no leakage)
+    d = 17e-6
+    g = SimulationGraph()
+    g.add(
+        PRBSGenerator("prbs", {"order": prbs_order, "bit_rate": k * symbol_rate, "n_bits": n_bits})
+    )
+    g.add(SymbolMapper("mapper", {"modulation": modulation, "polarizations": 2}))
+    laser = {"power": 10e-3, "n_samples": n_samples, "sample_rate": fs}
+    g.add(CWLaser("tx_laser", {**laser, "linewidth": tx_linewidth}))
+    g.add(PolarizationBeamSplitter("tx_pbs"))
+    for pol in ("x", "y"):
+        g.add(
+            PulseShaper(
+                f"shaper_{pol}",
+                {
+                    "samples_per_symbol": samples_per_symbol,
+                    "rolloff": rolloff,
+                    "amplitude": 1.0,
+                    "polarization": pol,
+                },
+            )
+        )
+        g.add(IQModulator(f"iq_{pol}", {"v_pi": 4.0, "insertion_loss": 10**-0.5}))
+        g.add(CoherentReceiver(f"receiver_{pol}"))
+    g.add(PolarizationBeamCombiner("pbc"))
+    g.add(LinearFiber("fiber", {"length": fiber_length_m, "dispersion": d}))
+    g.add(RandomPMD("pmd", {"mean_dgd": mean_dgd}))
+    span_loss = 10 ** (0.2 * fiber_length_m / 1e3 / 10)  # 0.2 dB/km, compensated by the amplifier
+    g.add(ASENoiseLoader("ase", {"osnr": 10 ** (osnr_db / 10), "gain": span_loss}))
+    g.add(PolarizationBeamSplitter("rx_pbs"))
+    g.add(CWLaser("lo", {**laser, "linewidth": lo_linewidth, "frequency_offset": lo_offset}))
+    g.add(PolarizationBeamSplitter("lo_pbs"))
+    g.add(DualPolCoherentDSP("dsp", {"cd_compensation": d * fiber_length_m}))
+    g.add(CoherentAnalyzer("analyzer"))
+    links = [
+        ("prbs", "out", "mapper", "bits"),
+        ("tx_laser", "out", "tx_pbs", "in"),
+        ("iq_x", "optical_out", "pbc", "x"),
+        ("iq_y", "optical_out", "pbc", "y"),
+        ("pbc", "out", "fiber", "in"),
+        ("fiber", "out", "pmd", "in"),
+        ("pmd", "out", "ase", "in"),
+        ("ase", "out", "rx_pbs", "in"),
+        ("lo", "out", "lo_pbs", "in"),
+        ("dsp", "symbols", "analyzer", "received"),
+        ("mapper", "symbols", "analyzer", "reference"),
+    ]
+    for pol in ("x", "y"):
+        links += [
+            ("mapper", "symbols", f"shaper_{pol}", "symbols"),
+            (f"shaper_{pol}", "i", f"iq_{pol}", "i"),
+            (f"shaper_{pol}", "q", f"iq_{pol}", "q"),
+            ("tx_pbs", pol, f"iq_{pol}", "optical_in"),
+            ("rx_pbs", pol, f"receiver_{pol}", "signal"),
+            ("lo_pbs", pol, f"receiver_{pol}", "lo"),
+            (f"receiver_{pol}", "i", "dsp", f"{pol}i"),
+            (f"receiver_{pol}", "q", "dsp", f"{pol}q"),
+        ]
+    for src, sp, dst, dp in links:
+        g.connect(src, sp, dst, dp)
+    title = f"{symbol_rate / 1e9:g} GBd DP-{modulation.upper()} coherent link"
+    return Project(graph=g, seed=seed, metadata={"title": title})
+
+
+DEMOS["dp_coherent_link"] = dp_coherent_link_project
