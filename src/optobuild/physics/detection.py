@@ -53,4 +53,52 @@ def pin_noise(
     return real_white_noise(rng, psd, sample_rate, i.size)
 
 
-__all__ = ["photocurrent", "pin_noise"]
+def coherent_detection(
+    signal_field: ArrayLike,
+    lo_field: ArrayLike,
+    responsivity: float,
+    rng: np.random.Generator | None,
+    sample_rate: float,
+    *,
+    shot: bool = True,
+    thermal: bool = True,
+    temperature: float = 300.0,
+    load_resistance: float = 50.0,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Ideal 90-degree hybrid + two balanced photodiode pairs.
+
+    Hybrid outputs (E_s + E_lo)/2, (E_s - E_lo)/2, (E_s + i E_lo)/2, (E_s - i E_lo)/2;
+    each photodiode sees P = sum_pol |.|^2 (square law, ``photocurrent``) and
+    its own shot and thermal noise (``pin_noise``). Balanced differences:
+
+        i_I = R Re(E_s . conj(E_lo)),   i_Q = R Im(E_s . conj(E_lo))
+
+    (dot = sum over polarizations; single-polarization LO aligned with the
+    signal). Noise per quadrature: one-sided PSD 2 q R (P_s + P_lo)/2 + 2 * 4 k T / R_L.
+    ``rng=None`` gives noiseless currents. Assumptions: ideal hybrid (no
+    phase/amplitude imbalance), identical diodes (infinite CMRR).
+    Reference: Kikuchi, J. Lightwave Technol. 34, 157 (2016).
+    """
+    es = np.asarray(signal_field, dtype=complex)
+    elo = np.asarray(lo_field, dtype=complex)
+    if es.shape != elo.shape:
+        raise ValueError(f"signal {es.shape} and LO {elo.shape} fields must have equal shapes.")
+    currents = []
+    for c in (1.0, -1.0, 1j, -1j):
+        p = np.sum(np.abs(0.5 * (es + c * elo)) ** 2, axis=0)
+        i = photocurrent(p, responsivity)
+        if rng is not None:
+            i = i + pin_noise(
+                rng,
+                i,
+                sample_rate,
+                shot=shot,
+                thermal=thermal,
+                temperature=temperature,
+                load_resistance=load_resistance,
+            )
+        currents.append(i)
+    return currents[0] - currents[1], currents[2] - currents[3]
+
+
+__all__ = ["coherent_detection", "photocurrent", "pin_noise"]

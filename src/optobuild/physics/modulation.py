@@ -102,8 +102,37 @@ def mzm_power_transfer(
     return insertion_loss * (np.cos(half) ** 2 + eps2 * np.sin(half) ** 2)
 
 
+def iq_modulator_field(
+    v_i: ArrayLike,
+    v_q: ArrayLike,
+    v_pi: float,
+    insertion_loss: float = 1.0,
+    extinction_ratio: float = math.inf,
+) -> NDArray[np.complex128]:
+    """Field transmission of a nested (IQ) Mach-Zehnder modulator.
+
+    Two child MZMs (``mzm_field_transfer``) biased at null (V_bias = V_pi),
+    combined with a 90 degree phase shift and 3-dB couplers:
+
+        A_out / A_in = sqrt(IL) / 2 * [ T(v_i) + i T(v_q) ],
+        T(v) = mzm_field_transfer(v, V_pi, V_bias = V_pi, ER)
+             = -sin(pi v / (2 V_pi))       (infinite ER)
+
+    The 1/2 is the field factor of splitting into and recombining from two
+    arms. Small drives (|v| << V_pi) give the linear map
+    A_out/A_in ~ -(pi sqrt(IL) / (4 V_pi)) (v_i + i v_q); the sine
+    nonlinearity is part of the model. Symbols: v_i, v_q [V], V_pi [V].
+    Reference: Seimetz, High-Order Modulation for Optical Fiber
+    Transmission (Springer, 2009), ch. 4.
+    """
+    t_i = mzm_field_transfer(v_i, v_pi, v_bias=v_pi, extinction_ratio=extinction_ratio)
+    t_q = mzm_field_transfer(v_q, v_pi, v_bias=v_pi, extinction_ratio=extinction_ratio)
+    return 0.5 * math.sqrt(insertion_loss) * (t_i + 1j * t_q)
+
+
 __all__ = [
     "Z_090",
+    "iq_modulator_field",
     "gaussian_sigma_from_rise_time",
     "mzm_field_transfer",
     "mzm_power_transfer",

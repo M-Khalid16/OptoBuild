@@ -72,4 +72,28 @@ def pulse_field(
     return (math.sqrt(peak_power) * env).astype(complex)[None, :]
 
 
-__all__ = ["PULSE_SHAPES", "cw_field", "frequency_offset_is_periodic", "pulse_field"]
+def wiener_phase_noise(
+    rng: np.random.Generator, linewidth: float, dt: float, n: int
+) -> NDArray[np.float64]:
+    """Laser phase noise phi_n [rad] as a Wiener process (Lorentzian line of FWHM ``linewidth``).
+
+    phi_0 = 0, phi_{n+1} - phi_n ~ N(0, 2 pi linewidth dt), so that
+    E[(phi(t+tau) - phi(t))^2] = 2 pi linewidth |tau| and the field
+    autocorrelation |E[A(t+tau) A*(t)]| = P exp(-pi linewidth |tau|).
+    Reference: Agrawal, Fiber-Optic Communication Systems, 5th ed., sec. 3.5.
+    Limitation: the sampled process is not periodic, so the periodic window
+    has a phase jump at its edge (spectral leakage).
+    """
+    if linewidth < 0:
+        raise ValueError("linewidth must be >= 0 Hz.")
+    steps = rng.normal(0.0, math.sqrt(2.0 * math.pi * linewidth * dt), n - 1)
+    return np.concatenate([[0.0], np.cumsum(steps)])
+
+
+__all__ = [
+    "PULSE_SHAPES",
+    "wiener_phase_noise",
+    "cw_field",
+    "frequency_offset_is_periodic",
+    "pulse_field",
+]

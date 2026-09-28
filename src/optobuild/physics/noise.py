@@ -47,7 +47,40 @@ def real_white_noise(
     return rng.standard_normal(n_samples) * std
 
 
+def complex_white_noise(
+    rng: np.random.Generator, two_sided_psd: float, sample_rate: float, shape: tuple[int, ...]
+) -> NDArray[np.complex128]:
+    """Circular complex Gaussian noise, two-sided PSD N [W/Hz]: per-sample variance N fs
+    (N fs / 2 per quadrature), numerical_conventions.md sec. 4."""
+    sigma = np.sqrt(0.5 * two_sided_psd * sample_rate)
+    return sigma * (rng.standard_normal(shape) + 1j * rng.standard_normal(shape))
+
+
+def ase_psd_for_osnr(signal_power: float, osnr: float, reference_bandwidth: float) -> float:
+    """ASE PSD per polarization [W/Hz] for a given OSNR.
+
+    OSNR = P_signal / (N_ase,total B_ref) with the total ASE counted in both
+    polarizations (standard OSA definition, B_ref = 12.5 GHz ~ 0.1 nm):
+    N_per_pol = P_signal / (2 OSNR B_ref).
+    """
+    return signal_power / (2.0 * osnr * reference_bandwidth)
+
+
+def osnr_to_snr(
+    osnr: float, symbol_rate: float, reference_bandwidth: float = 12.5e9, n_pol_signal: int = 1
+) -> float:
+    """SNR per symbol after ideal matched filtering: SNR = 2 B_ref OSNR / (p R_s).
+
+    p = number of polarizations carrying signal (Essiambre et al., J. Lightwave
+    Technol. 28, 662 (2010), eq. 11). Assumes ASE-limited, ideal receiver.
+    """
+    return 2.0 * reference_bandwidth * osnr / (n_pol_signal * symbol_rate)
+
+
 __all__ = [
+    "ase_psd_for_osnr",
+    "complex_white_noise",
+    "osnr_to_snr",
     "real_white_noise",
     "shot_noise_psd",
     "thermal_noise_psd",

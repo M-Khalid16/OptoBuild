@@ -50,6 +50,20 @@ def fiber_transfer_function(
     return math.exp(-0.5 * alpha * length) * np.exp(-1j * phase)
 
 
+def cd_compensation_transfer(
+    angular_frequency: ArrayLike, accumulated_dispersion: float, wavelength: float
+) -> NDArray[np.complex128]:
+    """Ideal chromatic-dispersion compensator for accumulated dispersion D L [s/m].
+
+    H_comp(w) = exp(+i beta2 L w^2 / 2) = 1 / H_fiber(w) (beta2 part only),
+    with beta2 L = -(D L) lambda^2 / (2 pi c). Third-order dispersion is not
+    compensated (documented limitation).
+    """
+    w = np.asarray(angular_frequency, dtype=float)
+    beta2_l = -accumulated_dispersion * wavelength**2 / (2.0 * math.pi * SPEED_OF_LIGHT)
+    return np.exp(0.5j * beta2_l * w**2)
+
+
 def group_delay(length: float, group_index: float) -> float:
     """Group delay beta1 L = n_g L / c [s]."""
     return group_index * length / SPEED_OF_LIGHT
@@ -86,6 +100,7 @@ def dispersive_spread(bandwidth: float, length: float, beta2: float, beta3: floa
 
 
 __all__ = [
+    "cd_compensation_transfer",
     "dispersion_length",
     "dispersive_spread",
     "fiber_transfer_function",
