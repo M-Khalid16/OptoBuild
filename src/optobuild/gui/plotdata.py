@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from optobuild.core.units import from_si
+from optobuild.core.units import frequency_to_wavelength, from_si
 from optobuild.signals import DigitalSequence, ElectricalSignal, OpticalSignal, SymbolSequence
 
 _PREFIXES = [
@@ -97,6 +97,33 @@ def spectrum_curve(results: dict[str, Any], axis: str = "wavelength") -> Curve:
     )
 
 
+TRANSFER_FLOOR_DB = -100.0
+"""Power transfer values below this (including exact zeros) are drawn at the floor."""
+
+
+def transfer_ports(results: dict[str, Any]) -> list[str]:
+    """Ports with a recorded device power transfer (``transfer_<port>`` results)."""
+    if "transfer_frequency_hz" not in results:
+        return []
+    return [k[len("transfer_") :] for k in results if k.startswith("transfer_")
+            and k != "transfer_frequency_hz"]  # fmt: skip
+
+
+def transfer_curve(results: dict[str, Any], port: str) -> Curve:
+    """Device power transfer |H|^2 [dB] of one output port vs wavelength [nm]."""
+    t = np.asarray(results[f"transfer_{port}"], dtype=float)
+    floor = 10 ** (TRANSFER_FLOOR_DB / 10)
+    db = 10 * np.log10(np.maximum(t, floor))
+    lam = np.asarray(frequency_to_wavelength(results["transfer_frequency_hz"]), dtype=float)
+    return Curve(
+        np.asarray(from_si(lam, "nm"), dtype=float),
+        db,
+        "wavelength [nm]",
+        f"power transfer [dB] (floor {TRANSFER_FLOOR_DB:g} dB)",
+        f"Device response: {port}",
+    )
+
+
 def waveform_curve(signal: Any) -> Curve:
     """Time-domain view of a signal: optical power, electrical samples or bits."""
     if isinstance(signal, OpticalSignal):
@@ -158,5 +185,7 @@ __all__ = [
     "eye_curve",
     "scalar_rows",
     "spectrum_curve",
+    "transfer_curve",
+    "transfer_ports",
     "waveform_curve",
 ]

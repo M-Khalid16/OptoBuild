@@ -247,3 +247,15 @@ def test_coherent_demo_shows_constellation_and_symbol_waveforms(app: QApplicatio
     r.waveform.selector.setCurrentIndex(idx)  # symbol outputs render as a scatter, no crash
     assert r.plotted_points("waveform") == 2047
     w.close()
+
+
+def test_ring_demo_shows_device_response(app: QApplication) -> None:
+    from optobuild.cli.demos import ring_filter_project
+
+    w = MainWindow(ProjectDocument(ring_filter_project(prbs_order=7)))
+    _run(app, w)
+    r = w.results
+    items = [r.response.selector.itemText(i) for i in range(r.response.selector.count())]
+    assert items == ["ring.through", "ring.drop"]
+    assert r.plotted_points("response") == 127 * 32
+    w.close()

@@ -40,6 +40,8 @@ from optobuild.gui.plotdata import (
     eye_curve,
     scalar_rows,
     spectrum_curve,
+    transfer_curve,
+    transfer_ports,
     waveform_curve,
 )
 from optobuild.numerics.layout import SimulationLayout
@@ -275,6 +277,9 @@ class ResultsPanel(QTabWidget):
         self.constellation = _PlotTab()
         self.constellation.selector.currentTextChanged.connect(self._draw_constellation)
         self.addTab(self.constellation, "Constellation")
+        self.response = _PlotTab()
+        self.response.selector.currentTextChanged.connect(self._draw_response)
+        self.addTab(self.response, "Device response")
         self.diagnostics = QListWidget()
         self.addTab(self.diagnostics, "Diagnostics")
 
@@ -291,7 +296,7 @@ class ResultsPanel(QTabWidget):
         self.result = result
         self.table.setRowCount(0)
         self.diagnostics.clear()
-        tabs = (self.eye, self.spectrum, self.waveform, self.constellation)
+        tabs = (self.eye, self.spectrum, self.waveform, self.constellation, self.response)
         for tab in tabs:
             tab.selector.blockSignals(True)
             tab.selector.clear()
@@ -317,6 +322,8 @@ class ResultsPanel(QTabWidget):
                 self.spectrum.selector.addItem(n)
             if "constellation" in res:
                 self.constellation.selector.addItem(n)
+            for port in transfer_ports(dict(res)):
+                self.response.selector.addItem(f"{n}.{port}")
             for port in result.nodes[n].outputs:
                 self.waveform.selector.addItem(f"{n}.{port}")
         for tab in tabs:
@@ -325,6 +332,7 @@ class ResultsPanel(QTabWidget):
         self._draw_spectrum()
         self._draw_waveform()
         self._draw_constellation()
+        self._draw_response()
 
     def _draw_eye(self, *_: Any) -> None:
         name = self.eye.selector.currentText()
@@ -354,6 +362,13 @@ class ResultsPanel(QTabWidget):
         pts = self.result.nodes[name].results["constellation"]
         _plot(self.constellation.plot, constellation_curve(pts, f"Constellation at {name}"))
 
+    def _draw_response(self, *_: Any) -> None:
+        item = self.response.selector.currentText()
+        if self.result is None or not item:
+            return
+        node, _, port = item.rpartition(".")
+        _plot(self.response.plot, transfer_curve(dict(self.result.nodes[node].results), port))
+
     def plotted_points(self, tab: str) -> int:
         """Number of finite points currently drawn in a plot tab (for tests)."""
         widget = {
@@ -361,6 +376,7 @@ class ResultsPanel(QTabWidget):
             "spectrum": self.spectrum,
             "waveform": self.waveform,
             "constellation": self.constellation,
+            "response": self.response,
         }[tab]
         items = widget.plot.getPlotItem().listDataItems()
         return int(sum(np.isfinite(i.yData).sum() for i in items if i.yData is not None))

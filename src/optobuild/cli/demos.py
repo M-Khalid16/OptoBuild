@@ -476,3 +476,86 @@ def dp_coherent_link_project(
 
 
 DEMOS["dp_coherent_link"] = dp_coherent_link_project
+
+
+def ring_filter_project(
+    seed: int = 7,
+    *,
+    bit_rate: float = 10e9,
+    prbs_order: int = 9,
+    samples_per_bit: int = 32,
+    power_coupling: float = 0.1,
+    detuning_hz: float = 0.0,
+) -> Project:
+    """Add-drop microring filtering a 10 Gb/s NRZ-OOK signal (Phase 7)::
+
+        PRBS -> NRZ -> MZM <- CW laser (1550 nm) -> add-drop ring -> through, drop
+        taps: power meters and optical spectra at the input, through and drop ports
+
+    The ring circumference is an integer number of guided wavelengths at 1550 nm
+    (resonance on the carrier); ``detuning_hz`` shifts the resonance by adding the
+    round-trip phase 2 pi detuning n_g L / c.
+    """
+    import math
+
+    from optobuild.components.analyzers import OpticalPowerMeter, OpticalSpectrumAnalyzer
+    from optobuild.components.modulators import MachZehnderModulator, NRZGenerator
+    from optobuild.components.photonic import AddDropRing
+    from optobuild.components.sources import CWLaser, PRBSGenerator
+    from optobuild.core.constants import SPEED_OF_LIGHT
+    from optobuild.physics.prbs import prbs_period
+
+    layout = SimulationLayout(bit_rate, prbs_period(prbs_order), samples_per_bit)
+    lam0, n_eff, n_g = 1550e-9, 2.4, 4.2
+    m = round(2 * math.pi * 10e-6 * n_eff / lam0)  # ~10 um radius, resonant at lam0
+    radius = m * lam0 / (2 * math.pi * n_eff)
+    tuning = 2 * math.pi * detuning_hz * n_g * 2 * math.pi * radius / SPEED_OF_LIGHT
+    v_pi = 4.0
+    g = SimulationGraph()
+    g.add(PRBSGenerator("prbs", {"order": prbs_order, "timing_source": "layout"}))
+    g.add(
+        NRZGenerator(
+            "nrz",
+            {
+                "timing_source": "layout",
+                "low": -v_pi / 2,
+                "high": v_pi / 2,
+                "rise_time": 0.3 / bit_rate,
+            },
+        )  # fmt: skip
+    )
+    g.add(CWLaser("laser", {"power": 1e-3, "wavelength": lam0, "timing_source": "layout"}))
+    g.add(MachZehnderModulator("mzm", {"v_pi": v_pi, "v_bias": -v_pi / 2}))
+    g.add(
+        AddDropRing(
+            "ring",
+            {
+                "radius": radius,
+                "power_coupling_in": power_coupling,
+                "power_coupling_drop": power_coupling,
+                "phase_shift": -tuning,
+                "n_eff": n_eff,
+                "n_group": n_g,
+                "design_wavelength": lam0,
+            },
+        )
+    )
+    for port in ("in", "through", "drop"):
+        g.add(OpticalPowerMeter(f"power_{port}"))
+        g.add(OpticalSpectrumAnalyzer(f"spectrum_{port}", {"resolution_bandwidth": 1e9}))
+    g.connect("prbs", "out", "nrz", "bits")
+    g.connect("nrz", "out", "mzm", "drive")
+    g.connect("laser", "out", "mzm", "optical_in")
+    g.connect("mzm", "optical_out", "ring", "in")
+    for port, (src, sp) in {
+        "in": ("mzm", "optical_out"),
+        "through": ("ring", "through"),
+        "drop": ("ring", "drop"),
+    }.items():
+        g.connect(src, sp, f"power_{port}", "in")
+        g.connect(src, sp, f"spectrum_{port}", "in")
+    title = f"Add-drop ring filtering {bit_rate / 1e9:g} Gb/s NRZ-OOK"
+    return Project(graph=g, seed=seed, layout=layout, metadata={"title": title})
+
+
+DEMOS["ring_filter"] = ring_filter_project

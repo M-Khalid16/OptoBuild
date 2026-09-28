@@ -71,3 +71,18 @@ def test_constellation_curves() -> None:
     assert c.scatter and c.x.tolist() == [1.0, -1.0] and c.y.tolist() == [1.0, -1.0]
     w = waveform_curve(SymbolSequence(np.array([1j, 1.0]), 1e9))
     assert w.scatter and w.x.size == 2
+
+
+def test_transfer_curve_in_db_vs_wavelength() -> None:
+    from optobuild.gui.plotdata import TRANSFER_FLOOR_DB, transfer_curve, transfer_ports
+
+    res = {
+        "transfer_frequency_hz": np.array([193.0e12, 193.1e12]),
+        "transfer_drop": np.array([0.5, 0.0]),
+        "fsr_hz": 1e12,
+    }
+    assert transfer_ports(res) == ["drop"]
+    assert transfer_ports({"fsr_hz": 1.0}) == []
+    c = transfer_curve(res, "drop")
+    assert c.y[0] == pytest.approx(10 * np.log10(0.5)) and c.y[1] == TRANSFER_FLOOR_DB
+    assert c.x[0] == pytest.approx(299792458 / 193.0e12 * 1e9)
