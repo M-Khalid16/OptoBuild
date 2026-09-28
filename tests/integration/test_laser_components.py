@@ -111,3 +111,16 @@ def test_fiber_ring_laser_power_and_threshold(run_component) -> None:  # type: i
     out, ctx = run_component(dark)
     assert out["out"].average_power() == 0.0
     assert any(d.code == "laser.below_threshold" for d in ctx.diagnostics)
+
+
+def test_dml_link_demo_back_to_back_and_reproducible() -> None:
+    from optobuild.cli.demos import dml_link_project
+    from optobuild.persistence import dumps_project, loads_project, run_project
+
+    p = dml_link_project(fiber_length_m=0.0)
+    a = run_project(p)
+    b = run_project(loads_project(dumps_project(p)))
+    assert a.result("ber", "ber") == 0.0
+    assert a.result("eye", "q_factor_decision_directed") > 10
+    np.testing.assert_array_equal(a.result("dml", "frequency_chirp_hz"),
+                                  b.result("dml", "frequency_chirp_hz"))  # fmt: skip

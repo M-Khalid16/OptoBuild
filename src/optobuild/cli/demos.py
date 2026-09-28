@@ -559,3 +559,99 @@ def ring_filter_project(
 
 
 DEMOS["ring_filter"] = ring_filter_project
+
+
+def dml_link_project(
+    seed: int = 8,
+    *,
+    bit_rate: float = 10e9,
+    prbs_order: int = 9,
+    samples_per_bit: int = 16,
+    fiber_length_m: float = 10e3,
+    bias_current: float = 0.045,
+    drive_voltage: float = 1.5,
+    pump_power: float = 0.02,
+    laser_noise: bool = True,
+) -> Project:
+    """Directly modulated laser link with an EDFA preamplifier (Phase 8)::
+
+        PRBS -> NRZ (+-drive/2 V into 50 ohm) -> directly modulated laser (rate equations)
+        DML -> SMF (17 ps/(nm km)) -> EDFA (pump) -> PIN -> low-pass -> decision -> BER
+        taps: power meters (TX, after EDFA), optical spectrum (TX), eye diagram
+
+    The DML's transient and adiabatic chirp interacts with fiber dispersion
+    (compare fiber_length_m = 0 with 20-40 km). The laser is a small-volume,
+    high-differential-gain 10G-class DML (V = 3e-17 m^3, a = 5e-20 m^2: I_th = 6.2 mA,
+    relaxation frequency ~15 GHz at the bias); other rate-equation parameters are the
+    physics defaults.
+    """
+    from optobuild.components.analyzers import (
+        BERAnalyzer,
+        EyeDiagramAnalyzer,
+        OpticalPowerMeter,
+        OpticalSpectrumAnalyzer,
+    )
+    from optobuild.components.detectors import PINPhotodiode
+    from optobuild.components.electrical import DecisionCircuit, LowPassFilter
+    from optobuild.components.fiber import LinearFiber
+    from optobuild.components.lasers import DirectlyModulatedLaser, ErbiumDopedFiberAmplifier
+    from optobuild.components.modulators import NRZGenerator
+    from optobuild.components.sources import PRBSGenerator
+    from optobuild.physics.prbs import prbs_period
+
+    layout = SimulationLayout(bit_rate, prbs_period(prbs_order), samples_per_bit)
+    g = SimulationGraph()
+    g.add(PRBSGenerator("prbs", {"order": prbs_order, "timing_source": "layout"}))
+    g.add(
+        NRZGenerator(
+            "nrz",
+            {
+                "timing_source": "layout",
+                "low": -drive_voltage / 2,
+                "high": drive_voltage / 2,
+                "rise_time": 0.3 / bit_rate,
+            },
+        )
+    )
+    g.add(
+        DirectlyModulatedLaser(
+            "dml",
+            {
+                "bias_current": bias_current,
+                "noise": laser_noise,
+                "volume": 3e-17,
+                "differential_gain": 5e-20,
+            },
+        )
+    )
+    g.add(LinearFiber("fiber", {"length": fiber_length_m}))
+    g.add(ErbiumDopedFiberAmplifier("edfa", {"pump_power": pump_power}))
+    g.add(PINPhotodiode("pin", {"responsivity": 0.8}))
+    g.add(LowPassFilter("filter", {"kind": "bessel", "order": 4, "bandwidth": 0.75 * bit_rate}))
+    g.add(DecisionCircuit("decision"))
+    g.add(BERAnalyzer("ber"))
+    g.add(OpticalPowerMeter("tx_power"))
+    g.add(OpticalPowerMeter("rx_power"))
+    g.add(OpticalSpectrumAnalyzer("tx_spectrum", {"resolution_bandwidth": 1e9}))
+    g.add(EyeDiagramAnalyzer("eye"))
+    for src, sp, dst, dp in (
+        ("prbs", "out", "nrz", "bits"),
+        ("nrz", "out", "dml", "drive"),
+        ("dml", "out", "fiber", "in"),
+        ("dml", "out", "tx_power", "in"),
+        ("dml", "out", "tx_spectrum", "in"),
+        ("fiber", "out", "edfa", "in"),
+        ("edfa", "out", "pin", "in"),
+        ("edfa", "out", "rx_power", "in"),
+        ("pin", "out", "filter", "in"),
+        ("filter", "out", "decision", "in"),
+        ("filter", "out", "eye", "in"),
+        ("decision", "bits", "ber", "received"),
+        ("prbs", "out", "ber", "reference"),
+    ):
+        g.connect(src, sp, dst, dp)
+    title = f"{bit_rate / 1e9:g} Gb/s directly modulated laser link, {fiber_length_m / 1e3:g} km"
+    return Project(graph=g, seed=seed, layout=layout, metadata={"title": title})
+
+
+DEMOS["dml_link"] = dml_link_project

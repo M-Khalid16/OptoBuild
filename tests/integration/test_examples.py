@@ -60,3 +60,14 @@ def test_photonic_circuits_example_runs(capsys) -> None:  # type: ignore[no-unty
     module.main()
     out = capsys.readouterr().out
     assert "closed form" in out and "Two coupled rings" in out and "TMM" in out
+
+
+def test_lasers_example_runs(capsys) -> None:  # type: ignore[no-untyped-def]
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("lasers_example", EXAMPLES / "lasers.py")
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    module.main()
+    out = capsys.readouterr().out
+    assert "closed form" in out and "EDFA" in out and "DML link" in out
