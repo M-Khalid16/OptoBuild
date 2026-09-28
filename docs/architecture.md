@@ -68,7 +68,7 @@ It displays results produced by `analysis`/`engine` and edits graphs through
 | `signals` | `OpticalSignal`, `ElectricalSignal`, `DigitalSequence`, `SymbolSequence`, noise representation, `SignalKind` | algorithms beyond trivial accessors (power, wavelength) |
 | `physics` | equations: fiber attenuation/dispersion, MZM transfer, photodetection, noise PSDs; later atmosphere, lasers, photonic elements | ports, parameters schemas, GUI, file I/O |
 | `analysis` | BER counting, Q-factor, eye diagram data, spectra, power, later EVM/OSNR/constellation/link budget | signal generation |
-| `solvers` | linear frequency-domain propagation, SSFM (P4), S-matrix circuits (P7), ODE/SDE, laser dynamics and EDFA (P8), cavity round-trip (P9) | component metadata |
+| `solvers` | linear frequency-domain propagation, SSFM (P4), S-matrix circuits (P7), ODE/SDE, laser dynamics and EDFA (P8), GNLSE (RK4IP) and cavity round-trip iteration (P9) | component metadata |
 | `components` | `Component` ABC (`base`), `PortSpec`/`ParameterSpec` (`spec`), `ComponentRegistry` (`registry`), built-in list (`library`), reference blocks (`reference`), concrete blocks grouped by category | equations (delegate to physics) |
 | `graph` | graph data model, connections, port-kind checking, topology, cycle detection | execution |
 | `engine` | `RunContext` implementation, DAG executor, cache & invalidation, progress, cancellation; later iterative executor | physics |

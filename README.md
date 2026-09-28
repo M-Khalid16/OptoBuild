@@ -4,7 +4,12 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 8 complete (v0.10.0)** — laser and amplifier
+**Current status: Phase 9 complete (v0.11.0)** — ultrafast optics: a
+generalized NLSE (dispersion to β10, Raman, self-steepening) solved with
+RK4IP, pulse metrology (FWHM, time-bandwidth product, autocorrelation), and a
+round-trip cavity solver with a passively mode-locked soliton fiber laser
+(`optobuild demo supercontinuum`, `optobuild demo mode_locked_laser`,
+`examples/ultrafast.py`). Phase 8 (v0.10.0) added laser and amplifier
 models: semiconductor-laser rate equations with gain compression, α-factor
 chirp and Langevin noise (RIN, Henry linewidth) as a directly modulated
 laser; a two-level EDFA whose gain and noise figure follow from the erbium

@@ -1,6 +1,6 @@
 # Physics models
 
-Status: **Phase 2, 4, 5, 6, 6b, 7 and 8 models implemented and validated** (v0.10.0). Later-phase
+Status: **Phase 2, 4–9 models implemented and validated** (v0.11.0). Later-phase
 models are listed in §2 as *not started*; nothing here describes code that
 does not exist.
 
@@ -513,6 +513,48 @@ at the window edges.
    full-inversion gain/NF (2 − 1/G), ring numeric vs closed form (1e-7),
    threshold and slope. `tests/integration/test_laser_components.py`.
 
+### 3.27 Generalized NLSE and pulse metrics — `physics.ultrafast`, `solvers.gnlse`, `analysis.pulses`
+
+1. `dÃ/dz = D(ω)Ã + N(A)`, `D = −α/2 − i Σ β_k ω^k/k!`,
+   `N = −iγ (1 + ω/ω0) F{A[(1 − f_R)|A|² + f_R h_R ⊛ |A|²]}` (our
+   convention: conjugate of the usual form); Blow–Wood
+   `H_R(ω) = C/((1/τ2 + iω)² + 1/τ1²)`; `T_R = f_R 2τ1²τ2/(τ1² + τ2²)`;
+   photon number `Σ|Ã|²/(ω0 + ω)` conserved; shock: `I(z,T) = I0(T − 3γIz/ω0)`;
+   Gordon `d⟨ω⟩/dz = −8|β2|T_R/(15T0⁴)`.
+2. β_k [s^k/m] (display ps^k/km), γ [1/(W m)], τ [s], ω [rad/s].
+3. Scalar, single mode, silica-like Raman, γ constant apart from (1 + ω/ω0).
+4. Window and bandwidth must contain the pulse and spectrum (diagnostics).
+5. RK4IP with step-doubling error control (ADR-0020).
+6. No vector effects, no quantum noise, no frequency-dependent A_eff.
+7. Agrawal, *Nonlinear Fiber Optics* 6th ed. ch. 12–13; Dudley, Genty & Coen,
+   RMP 78, 1135 (2006); Hult, JLT 25, 3770 (2007); Blow & Wood, IEEE JQE 25,
+   2665 (1989); Gordon, Opt. Lett. 11, 662 (1986).
+8. `tests/validation/test_gnlse.py` (solitons, shock solution to 1e-6,
+   photon number 1e-7, SSFS 2 %, order 4, exact linear step);
+   `test_pulses.py` (Gaussian/sech² widths, TBP 0.441/0.315, AC factors
+   √2/1.543, chirped TBP); `tests/integration/test_ultrafast_components.py`
+   (GNLSE vs SSFM in the NLSE limit).
+
+### 3.28 Laser cavity round trips — `physics.cavity`, `solvers.cavity`
+
+1. Gain `G = exp(g0/(1 + E/E_sat))`; absorber `T = 1 − q0/(1 + P/P_sat) − l_ns`;
+   filter `exp(−ω²/W²)`; gate `exp(−t²/T_m²)`; coupler `√(1−T)`/`√T`;
+   gate+filter fixed point `a* = (−c + √(c² + cW²))/2`, `c = 1/T_m²`,
+   `E* = E_sat(g0/L − 1)`.
+2. E [J], P [W], W [rad/s], T_m [s].
+3. Lumped elements, energy-saturated gain (slow gain), instantaneous
+   absorber, one pulse per window.
+4. Convergence is checked (intensity residual, patience); non-convergence
+   and multi-pulsing are reported as diagnostics.
+5. Fixed-point iteration of the round-trip map (ADR-0020).
+6. No distributed gain, no gain dynamics within a pulse, no harmonic mode
+   locking.
+7. Haus, IEEE JSTQE 6, 1173 (2000); Siegman, *Lasers* (1986) ch. 27–28.
+8. `tests/validation/test_cavity.py`: exact Gaussian fixed point (1e-9) and
+   steady energy (1e-9) from noise, decay below threshold, non-convergence
+   report; mode-locked soliton laser plausibility in
+   `tests/integration/test_ultrafast_components.py`.
+
 ## 4. References
 
 * G. P. Agrawal, *Nonlinear Fiber Optics*, 6th ed., Academic Press, 2019.
@@ -525,6 +567,9 @@ at the window edges.
 * H. A. Macleod, *Thin-Film Optical Filters*, 4th ed., CRC Press, 2010.
 * C. H. Henry, "Theory of the linewidth of semiconductor lasers," *IEEE J. Quantum Electron.* 18, 259 (1982).
 * C. R. Giles, E. Desurvire, "Modeling erbium-doped fiber amplifiers," *J. Lightwave Technol.* 9, 271 (1991).
+* J. M. Dudley, G. Genty, S. Coen, "Supercontinuum generation in photonic crystal fiber," *Rev. Mod. Phys.* 78, 1135 (2006).
+* J. Hult, "A fourth-order Runge-Kutta in the interaction picture method for simulating supercontinuum generation," *J. Lightwave Technol.* 25, 3770 (2007).
+* H. A. Haus, "Mode-locking of lasers," *IEEE J. Sel. Top. Quantum Electron.* 6, 1173 (2000).
 * J. G. Proakis, M. Salehi, *Digital Communications*, 5th ed., McGraw-Hill, 2008.
 * A. V. Oppenheim, A. S. Willsky, *Signals and Systems*, 2nd ed., Prentice Hall, 1997.
 * W. E. Thomson, "Delay networks having maximally flat frequency characteristics," *Proc. IEE* 96 (1949).

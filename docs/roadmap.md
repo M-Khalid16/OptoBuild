@@ -173,9 +173,20 @@ Status: complete (v0.10.0). Deferred: multimode/side-mode lasers, thermal
 effects, EDFA ASE self-saturation and backward pumping, laser dynamics of
 fiber cavities (Phase 9).
 
+## Phase 9 — Ultrafast propagation and mode-locked cavities ✅
+
+* Generalized NLSE (dispersion to β10, Raman, self-steepening) with RK4IP
+  and error control; ultrafast fiber component; supercontinuum demo (Dudley
+  et al. benchmark configuration).
+* Pulse metrology: FWHM, TBP, intensity autocorrelation; autocorrelator.
+* Round-trip cavity solver and lumped cavity elements; passively
+  mode-locked soliton fiber laser (ADR-0020).
+
+Status: complete (v0.11.0). Deferred: vector GNLSE, noise-seeded
+supercontinuum coherence, distributed gain, graph-level feedback loops.
+
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 9 | Ultrafast pulse propagation and mode-locked cavities (iterative executor) |
 | 10 | Optimization, Monte Carlo, reports, plugins, acceleration |
