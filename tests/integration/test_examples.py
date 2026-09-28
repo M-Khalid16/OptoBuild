@@ -82,3 +82,15 @@ def test_ultrafast_example_runs_quick(capsys) -> None:  # type: ignore[no-untype
     module.main(["--quick"])
     out = capsys.readouterr().out
     assert "photon-number change" in out and "converged after" in out
+
+
+def test_workflows_example_runs_quick(capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("workflows_example", EXAMPLES / "workflows.py")
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    report = tmp_path / "wf.html"
+    module.main(["--quick", "--report", str(report)])
+    out = capsys.readouterr().out
+    assert "OSNR sweep" in out and "optimum" in out and report.exists()
