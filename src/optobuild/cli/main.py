@@ -6,6 +6,11 @@ Examples::
     optobuild demo reference             # run a built-in demo project
     optobuild demo reference --save p.json
     optobuild run p.json --seed 7        # run a project file
+    optobuild report demo:coherent_link -o report.html
+    optobuild sweep demo:reference --axis gain.gain=1,2,3 --probe clean.mean
+    optobuild sweep p.json --axis fiber.length=0:50e3:6 --probe ber.ber --trials 4 --workers 4
+    optobuild optimize demo:reference --var gain.gain=-5:5 --minimize clean.rms
+    optobuild --plugins components       # include installed plugin components
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ import numpy as np
 
 import optobuild
 from optobuild.cli.demos import DEMOS
-from optobuild.components.registry import builtin_registry
+from optobuild.components.registry import ComponentRegistry, builtin_registry
 from optobuild.core.errors import OptoBuildError
 from optobuild.core.log import configure_logging
 from optobuild.engine.executor import SimulationResult
@@ -64,6 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--log-level", default="WARNING", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
     )
+    parser.add_argument(
+        "--plugins",
+        action="store_true",
+        help="load component plugins of installed packages (entry points)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("components", help="list built-in components")
     p_demo = sub.add_parser("demo", help="run a built-in demo project")
@@ -104,6 +114,38 @@ def build_parser() -> argparse.ArgumentParser:
     p_ber.add_argument("--trials", type=int, default=10)
     p_ber.add_argument("--node", default="ber", help="name of the BER analyzer node")
     p_ber.add_argument("--seed", type=int, default=None, help="override the project seed")
+    p_rep = sub.add_parser("report", help="run a project and write a self-contained HTML report")
+    p_rep.add_argument("project", help="project file, or demo:<name>")
+    p_rep.add_argument("-o", "--output", required=True, metavar="PATH")
+    p_rep.add_argument("--seed", type=int, default=None)
+    p_rep.add_argument("--no-timestamp", action="store_true", help="reproducible output")
+    p_sw = sub.add_parser(
+        "sweep",
+        help="sweep component parameters and collect scalar results",
+        description="Axis values: comma list (units allowed, e.g. '10 km,20 km') or "
+        "lo:hi:n for n linearly spaced SI values.",
+    )
+    p_sw.add_argument("project", help="project file, or demo:<name>")
+    p_sw.add_argument("--axis", action="append", default=[], metavar="NODE.PARAM=VALUES")
+    p_sw.add_argument("--probe", action="append", required=True, metavar="NODE.KEY")
+    p_sw.add_argument("--trials", type=int, default=1)
+    p_sw.add_argument("--workers", type=int, default=1)
+    p_sw.add_argument("--seed", type=int, default=None)
+    p_sw.add_argument("--csv", metavar="PATH")
+    p_sw.add_argument("--html", metavar="PATH")
+    p_opt = sub.add_parser("optimize", help="optimize component parameters for a result")
+    p_opt.add_argument("project", help="project file, or demo:<name>")
+    p_opt.add_argument("--var", action="append", required=True, metavar="NODE.PARAM=LO:HI[:START]")
+    goal = p_opt.add_mutually_exclusive_group(required=True)
+    goal.add_argument("--maximize", metavar="NODE.KEY")
+    goal.add_argument("--minimize", metavar="NODE.KEY")
+    p_opt.add_argument("--trials", type=int, default=1, help="trials averaged per evaluation")
+    p_opt.add_argument(
+        "--method", default="auto", choices=["auto", "bounded", "nelder-mead", "powell"]
+    )
+    p_opt.add_argument("--max-evaluations", type=int, default=200)
+    p_opt.add_argument("--seed", type=int, default=None)
+    p_opt.add_argument("--html", metavar="PATH")
     for p in (p_demo, p_run):
         p.add_argument(
             "--save-results",
@@ -154,17 +196,134 @@ def _fso_budget(args: argparse.Namespace) -> int:
     return 0
 
 
-def _ber(args: argparse.Namespace) -> int:
+class _UsageError(Exception):
+    """Invalid command-line input (exit code 2)."""
+
+
+def _load(spec: str, registry: ComponentRegistry | None) -> Project:
+    """A project file, or ``demo:<name>`` for a built-in demo."""
+    if spec.startswith("demo:"):
+        name = spec[5:]
+        if name not in DEMOS:
+            raise _UsageError(f"unknown demo {name!r}; choose from {sorted(DEMOS)}")
+        return DEMOS[name]()
+    return load_project(spec, registry)
+
+
+def _number(text: str) -> float:
+    """A float, or a quantity with a unit converted to SI (never evaluated as code)."""
+    from optobuild.core.units import parse_to_si
+
+    try:
+        return float(text)
+    except ValueError:
+        return float(parse_to_si(text.strip()))
+
+
+def _split_ref(text: str, what: str) -> tuple[str, str]:
+    node, sep, rest = text.partition(".")
+    if not sep or not node or not rest:
+        raise _UsageError(f"{what} {text!r} must look like NODE.NAME")
+    return node, rest
+
+
+def _axis(text: str):  # type: ignore[no-untyped-def]
+    from optobuild.sweeps.parameter_sweep import Axis
+
+    ref, eq, values = text.partition("=")
+    if not eq:
+        raise _UsageError(f"axis {text!r} must look like NODE.PARAM=VALUES")
+    node, param = _split_ref(ref, "axis")
+    parts = values.split(":")
+    if len(parts) == 3 and "," not in values:
+        lo, hi, n = _number(parts[0]), _number(parts[1]), int(parts[2])
+        vals = tuple(float(v) for v in np.linspace(lo, hi, n))
+    else:
+        vals = tuple(_number(v) for v in values.split(","))
+    return Axis(node, param, vals)
+
+
+def _variable(text: str):  # type: ignore[no-untyped-def]
+    from optobuild.optimization.optimizer import Variable
+
+    ref, eq, bounds = text.partition("=")
+    parts = bounds.split(":")
+    if not eq or len(parts) not in (2, 3):
+        raise _UsageError(f"variable {text!r} must look like NODE.PARAM=LO:HI[:START]")
+    node, param = _split_ref(ref, "variable")
+    start = _number(parts[2]) if len(parts) == 3 else None
+    return Variable(node, param, _number(parts[0]), _number(parts[1]), start)
+
+
+def _write(path: str, text: str, what: str) -> None:
+    from pathlib import Path
+
+    Path(path).write_text(text, encoding="utf-8")
+    print(f"wrote {what} to {path}")
+
+
+def _sweep(args: argparse.Namespace, registry: ComponentRegistry | None) -> int:
+    from optobuild.reporting.html import sweep_report
+    from optobuild.sweeps.parameter_sweep import Probe, sweep
+
+    project = _load(args.project, registry)
+    axes = [_axis(a) for a in args.axis]
+    probes = [Probe(*_split_ref(p, "probe")) for p in args.probe]
+    res = sweep(
+        project,
+        axes,
+        probes,
+        trials=args.trials,
+        seed=args.seed,
+        workers=args.workers,
+        registry=registry,
+        on_point=lambda done, total: print(f"point {done}/{total}", file=sys.stderr),
+    )
+    print(res.to_csv(), end="")
+    if args.csv:
+        _write(args.csv, res.to_csv(), "CSV")
+    if args.html:
+        _write(args.html, sweep_report(res), "report")
+    return 0
+
+
+def _optimize(args: argparse.Namespace, registry: ComponentRegistry | None) -> int:
+    from optobuild.optimization.optimizer import Objective, optimize
+    from optobuild.reporting.html import optimization_report
+
+    project = _load(args.project, registry)
+    ref, sense = (args.maximize, "max") if args.maximize else (args.minimize, "min")
+    node, key = _split_ref(ref, "objective")
+    res = optimize(
+        project,
+        [_variable(v) for v in args.var],
+        Objective(node, key, sense, tuple(range(args.trials))),
+        method=args.method,
+        max_evaluations=args.max_evaluations,
+        seed=args.seed,
+        registry=registry,
+    )
+    for label, value in res.x.items():
+        print(f"{label} = {value:.9g}")
+    print(f"{node}.{key} = {res.value:.9g} ({res.n_evaluations} evaluations, {res.message})")
+    if args.html:
+        _write(args.html, optimization_report(res), "report")
+    return 0
+
+
+def _html_report(args: argparse.Namespace, registry: ComponentRegistry | None) -> int:
+    from optobuild.reporting.html import run_report
+
+    project = _load(args.project, registry)
+    result = _run_project(project, args.seed)
+    _write(args.output, run_report(project, result, timestamp=not args.no_timestamp), "report")
+    return 0
+
+
+def _ber(args: argparse.Namespace, registry: ComponentRegistry | None = None) -> int:
     from optobuild.sweeps.monte_carlo import monte_carlo_ber
 
-    if args.project.startswith("demo:"):
-        name = args.project[5:]
-        if name not in DEMOS:
-            print(f"error: unknown demo {name!r}; choose from {sorted(DEMOS)}", file=sys.stderr)
-            return 2
-        project = DEMOS[name]()
-    else:
-        project = load_project(args.project)
+    project = _load(args.project, registry)
 
     def show(trial: int, n_err: int, n_bits: int) -> None:
         print(f"trial {trial:4d}: {n_err} errors / {n_bits} bits")
@@ -181,11 +340,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point; returns the process exit code."""
     args = build_parser().parse_args(argv)
     configure_logging(args.log_level)
+    registry: ComponentRegistry | None = None
+    if args.plugins:
+        from optobuild.plugins.discovery import plugin_registry
+
+        registry, reports = plugin_registry()
+        for r in reports:
+            state = f"loaded {', '.join(r.type_ids)}" if r.ok else f"FAILED: {r.error}"
+            print(f"plugin {r.name} ({r.value}): {state}", file=sys.stderr)
     try:
         if args.command == "components":
-            registry = builtin_registry()
-            for type_id in registry:
-                info = registry.describe(type_id)
+            reg = registry or builtin_registry()
+            for type_id in reg:
+                info = reg.describe(type_id)
                 print(f"{type_id:45s} v{info['version']:8s} {info['display_name']}")
             return 0
         if args.command == "demo":
@@ -195,10 +362,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             _report(project, args)
             return 0
         if args.command == "run":
-            _report(load_project(args.project), args)
+            _report(load_project(args.project, registry), args)
             return 0
         if args.command == "ber":
-            return _ber(args)
+            return _ber(args, registry)
+        if args.command == "report":
+            return _html_report(args, registry)
+        if args.command == "sweep":
+            return _sweep(args, registry)
+        if args.command == "optimize":
+            return _optimize(args, registry)
         if args.command == "fso-budget":
             return _fso_budget(args)
         if args.command == "gui":
@@ -212,7 +385,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 return 2
             return gui_main([args.project] if args.project else [])
-    except OptoBuildError as exc:
+    except (OptoBuildError, _UsageError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 1  # pragma: no cover

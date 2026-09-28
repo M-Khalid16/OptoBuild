@@ -52,3 +52,28 @@ def test_ber_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["ber", "demo:optical_link", "--trials", "2"]) == 0
     out = capsys.readouterr().out
     assert "trial    1:" in out and "total:" in out and "4094 bits" in out
+
+
+def test_sweep_optimize_and_report_commands(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from optobuild.cli.main import main
+
+    assert main(["sweep", "demo:reference", "--axis", "gain.gain=1,2", "--probe", "clean.mean",
+                 "--csv", str(tmp_path / "s.csv")]) == 0  # fmt: skip
+    out = capsys.readouterr().out
+    assert "gain.gain,trial,clean.mean" in out and "1.0,0,17.5" in out and "2.0,0,25.0" in out
+    assert (tmp_path / "s.csv").read_text().startswith("gain.gain")
+    assert (
+        main(["sweep", "demo:reference", "--axis", "gain.gain=0:2:3", "--probe", "clean.mean"]) == 0
+    )
+    assert "2.0,0,25.0" in capsys.readouterr().out  # linspace 0, 1, 2
+    assert main(["optimize", "demo:reference", "--var", "gain.gain=-5:5", "--minimize",
+                 "clean.rms"]) == 0  # fmt: skip
+    assert "gain.gain = -0.9677" in capsys.readouterr().out
+    report = tmp_path / "r.html"
+    assert main(["report", "demo:reference", "-o", str(report), "--no-timestamp"]) == 0
+    assert report.read_text().startswith("<!DOCTYPE html>")
+    assert main(["sweep", "demo:reference", "--axis", "gain.gain", "--probe", "clean.mean"]) == 2
+    assert main(["report", "demo:nope", "-o", str(report)]) == 2
+    assert main(["--plugins", "components"]) == 0
