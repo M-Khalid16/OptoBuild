@@ -655,3 +655,102 @@ def dml_link_project(
 
 
 DEMOS["dml_link"] = dml_link_project
+
+
+# Dudley, Genty & Coen, Rev. Mod. Phys. 78, 1135 (2006), sec. III and Fig. 3:
+# PCF at 835 nm, beta_k in ps^k/km (k = 2..10)
+DUDLEY_BETAS_PS_KM = (
+    -11.830,
+    8.1038e-2,
+    -9.5205e-5,
+    2.0737e-7,
+    -5.3943e-10,
+    1.3486e-12,
+    -2.5495e-15,
+    3.0524e-18,
+    -1.7140e-21,
+)
+
+
+def supercontinuum_project(
+    seed: int = 9,
+    *,
+    length_m: float = 0.15,
+    peak_power_w: float = 10e3,
+    fwhm_s: float = 50e-15,
+    n_samples: int = 2**13,
+    window_s: float = 12.5e-12,
+) -> Project:
+    """Supercontinuum in a photonic-crystal fiber (Phase 9), the benchmark of Dudley et
+    al. (2006): 50 fs FWHM sech pulse, 10 kW peak, 835 nm, 15 cm PCF with dispersion to
+    beta10, gamma = 0.11 /(W m), Raman (f_R = 0.18) and self-steepening::
+
+        pulse source -> GNLSE fiber -> optical spectra (in/out), power meter
+        pulse source -> autocorrelator
+    """
+    import math
+
+    from optobuild.components.analyzers import OpticalPowerMeter, OpticalSpectrumAnalyzer
+    from optobuild.components.nonlinear import OpticalPulseSource
+    from optobuild.components.ultrafast import Autocorrelator, UltrafastFiber
+
+    t0 = fwhm_s / (2 * math.log(1 + math.sqrt(2)))
+    fiber: dict[str, float] = {"length": length_m, "attenuation": 0.0, "gamma": 0.11,
+                               "tolerance": 1e-6}  # fmt: skip
+    for k, b in enumerate(DUDLEY_BETAS_PS_KM, start=2):
+        fiber[f"beta{k}"] = b * 10.0 ** (-12 * k - 3)
+    g = SimulationGraph()
+    g.add(
+        OpticalPulseSource(
+            "pulse",
+            {
+                "shape": "sech",
+                "peak_power": peak_power_w,
+                "width": t0,
+                "wavelength": 835e-9,
+                "n_samples": n_samples,
+                "sample_rate": n_samples / window_s,
+            },
+        )
+    )
+    g.add(UltrafastFiber("pcf", fiber))
+    g.add(OpticalSpectrumAnalyzer("input_spectrum", {"resolution_bandwidth": 0.1e12}))
+    g.add(OpticalSpectrumAnalyzer("output_spectrum", {"resolution_bandwidth": 0.1e12}))
+    g.add(OpticalPowerMeter("output_power"))
+    g.add(Autocorrelator("autocorrelator"))
+    g.connect("pulse", "out", "pcf", "in")
+    g.connect("pulse", "out", "input_spectrum", "in")
+    g.connect("pcf", "out", "output_spectrum", "in")
+    g.connect("pcf", "out", "output_power", "in")
+    g.connect("pulse", "out", "autocorrelator", "in")
+    title = (
+        f"Supercontinuum: {fwhm_s * 1e15:g} fs, {peak_power_w / 1e3:g} kW, "
+        f"{length_m * 100:g} cm PCF"
+    )
+    return Project(graph=g, seed=seed, metadata={"title": title})
+
+
+DEMOS["supercontinuum"] = supercontinuum_project
+
+
+def mode_locked_laser_project(seed: int = 10, *, small_signal_gain_db: float = 8.7) -> Project:
+    """Passively mode-locked soliton fiber ring laser (Phase 9)::
+
+    mode-locked laser (gain, SMF, saturable absorber, 30 % output) -> autocorrelator,
+    optical spectrum analyzer, power meter
+    """
+    from optobuild.components.analyzers import OpticalPowerMeter, OpticalSpectrumAnalyzer
+    from optobuild.components.ultrafast import Autocorrelator, ModeLockedFiberLaser
+
+    g = SimulationGraph()
+    g.add(ModeLockedFiberLaser("laser", {"small_signal_gain": 10 ** (small_signal_gain_db / 10)}))
+    g.add(Autocorrelator("autocorrelator"))
+    g.add(OpticalSpectrumAnalyzer("spectrum", {"resolution_bandwidth": 0.05e12}))
+    g.add(OpticalPowerMeter("power"))
+    for dst in ("autocorrelator", "spectrum", "power"):
+        g.connect("laser", "out", dst, "in")
+    title = "Passively mode-locked soliton fiber laser"
+    return Project(graph=g, seed=seed, metadata={"title": title})
+
+
+DEMOS["mode_locked_laser"] = mode_locked_laser_project

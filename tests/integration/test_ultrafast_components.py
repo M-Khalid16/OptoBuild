@@ -113,3 +113,29 @@ def test_count_pulses() -> None:
     x[[10, 11, 50, 98, 99, 0]] = 1.0
     assert count_pulses(x) == 3  # lobes 10-11, 50 and 98-99-0 (wrapping around)
     assert count_pulses(np.ones(10)) == 1
+
+
+def test_supercontinuum_demo_short_fiber_conserves_photons() -> None:
+    """1 cm of the Dudley benchmark on a 4096-point grid: broadening with photon number
+    conserved to the solver tolerance while energy is lost to the Raman shift."""
+    from optobuild.cli.demos import supercontinuum_project
+    from optobuild.persistence import run_project
+
+    r = run_project(supercontinuum_project(length_m=0.01, n_samples=2**12))
+    fiber = r.nodes["pcf"].results
+    assert abs(fiber["photon_number_change"]) < 1e-6
+    assert fiber["energy_change"] < 0
+    rbw_in = r.result("input_spectrum", "total_power_w")
+    assert r.result("output_spectrum", "total_power_w") < rbw_in
+
+
+def test_mode_locked_laser_demo() -> None:
+    from optobuild.cli.demos import mode_locked_laser_project
+    from optobuild.persistence import run_project
+
+    r = run_project(mode_locked_laser_project())
+    assert r.result("laser", "converged")
+    assert r.result("autocorrelator", "deconvolved_fwhm_s") == pytest.approx(
+        r.result("laser", "pulse_fwhm_s"),
+        rel=0.05,  # the pulse is close to sech^2
+    )

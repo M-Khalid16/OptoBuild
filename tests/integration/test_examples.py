@@ -71,3 +71,14 @@ def test_lasers_example_runs(capsys) -> None:  # type: ignore[no-untyped-def]
     module.main()
     out = capsys.readouterr().out
     assert "closed form" in out and "EDFA" in out and "DML link" in out
+
+
+def test_ultrafast_example_runs_quick(capsys) -> None:  # type: ignore[no-untyped-def]
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("ultrafast_example", EXAMPLES / "ultrafast.py")
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    module.main(["--quick"])
+    out = capsys.readouterr().out
+    assert "photon-number change" in out and "converged after" in out
