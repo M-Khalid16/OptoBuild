@@ -105,6 +105,10 @@ class CWLaser(Component):
         ),
     )
 
+    def output_power(self, context: RunContext) -> float:
+        """Emitted power [W] (subclasses derive it from a laser model)."""
+        return float(self.parameters["power"])
+
     @property
     def frequency(self) -> float:
         """Reference optical frequency c / wavelength [Hz]."""
@@ -161,7 +165,7 @@ class CWLaser(Component):
                 )
         else:
             grid = TimeGrid.from_sample_rate(p["n_samples"], p["sample_rate"])
-        field = cw_field(grid, p["power"], p["phase"], p["frequency_offset"])
+        field = cw_field(grid, self.output_power(context), p["phase"], p["frequency_offset"])
         if p["linewidth"] > 0:
             phi = wiener_phase_noise(context.rng, p["linewidth"], grid.dt, grid.n_samples)
             field = field * np.exp(1j * phi)[None, :]

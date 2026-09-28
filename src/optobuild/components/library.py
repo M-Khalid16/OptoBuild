@@ -23,6 +23,11 @@ from optobuild.components.detectors import PINPhotodiode
 from optobuild.components.electrical import DecisionCircuit, LowPassFilter
 from optobuild.components.fiber import LinearFiber
 from optobuild.components.fso import FSOChannel
+from optobuild.components.lasers import (
+    DirectlyModulatedLaser,
+    ErbiumDopedFiberAmplifier,
+    FiberRingLaser,
+)
 from optobuild.components.modulators import MachZehnderModulator, NRZGenerator
 from optobuild.components.nonlinear import NonlinearFiber, OpticalPulseSource
 from optobuild.components.photonic import (
@@ -73,6 +78,11 @@ POLARIZATION_COMPONENTS: tuple[type[Component], ...] = (
     RandomPMD,
     DualPolCoherentDSP,
 )
+LASER_COMPONENTS: tuple[type[Component], ...] = (
+    DirectlyModulatedLaser,
+    ErbiumDopedFiberAmplifier,
+    FiberRingLaser,
+)
 PHOTONIC_COMPONENTS: tuple[type[Component], ...] = (
     AllPassRing,
     AddDropRing,
@@ -88,12 +98,14 @@ BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *COHERENT_COMPONENTS,
     *POLARIZATION_COMPONENTS,
     *PHOTONIC_COMPONENTS,
+    *LASER_COMPONENTS,
 )
 
 __all__ = [
     "BUILTIN_COMPONENTS",
     "COHERENT_COMPONENTS",
     "FSO_COMPONENTS",
+    "LASER_COMPONENTS",
     "NONLINEAR_COMPONENTS",
     "OPTICAL_LINK_COMPONENTS",
     "PHOTONIC_COMPONENTS",

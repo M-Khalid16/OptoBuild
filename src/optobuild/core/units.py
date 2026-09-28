@@ -191,6 +191,12 @@ _add(_scale("1/(W km)", "nonlinear_coefficient", 1e-3), "1/W/km")
 _add(_scale("m^2/W", "nonlinear_index", 1.0))
 _add(_scale("m^2", "area", 1.0))
 _add(_scale("um^2", "area", 1e-12), "µm^2")
+_add(_scale("cm^2", "area", 1e-4))
+_add(_scale("m^3", "volume", 1.0))
+_add(_scale("cm^3", "volume", 1e-6))
+_add(_scale("um^3", "volume", 1e-18), "µm^3")
+_add(_scale("m^-3", "number_density", 1.0))
+_add(_scale("cm^-3", "number_density", 1e6))
 _add(Unit("dB/km", "attenuation", lambda v: db_per_km_to_per_m(v), lambda v: per_m_to_db_per_km(v)))
 _add(
     Unit(
