@@ -48,3 +48,15 @@ def test_fso_example_runs(capsys) -> None:  # type: ignore[no-untyped-def]
     module.main(["--trials", "5"])
     out = capsys.readouterr().out
     assert "link margin" in out and "analytic" in out
+
+
+def test_photonic_circuits_example_runs(capsys) -> None:  # type: ignore[no-untyped-def]
+    import importlib.util
+
+    path = EXAMPLES / "photonic_circuits.py"
+    spec = importlib.util.spec_from_file_location("photonic_example", path)
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    module.main()
+    out = capsys.readouterr().out
+    assert "closed form" in out and "Two coupled rings" in out and "TMM" in out
