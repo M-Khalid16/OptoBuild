@@ -192,6 +192,14 @@ _add(_scale("m^2/W", "nonlinear_index", 1.0))
 _add(_scale("m^2", "area", 1.0))
 _add(_scale("um^2", "area", 1e-12), "µm^2")
 _add(Unit("dB/km", "attenuation", lambda v: db_per_km_to_per_m(v), lambda v: per_m_to_db_per_km(v)))
+_add(
+    Unit(
+        "dB/cm",
+        "attenuation",
+        lambda v: db_per_km_to_per_m(np.asarray(v, dtype=float) * 1e5),
+        lambda v: per_m_to_db_per_km(v) / 1e5,
+    )
+)
 _add(Unit("dBm", "power", lambda v: dbm_to_watt(v), lambda v: watt_to_dbm(v)))
 _add(_scale("ratio", "ratio", 1.0))
 _add(Unit("dB", "ratio", lambda v: db_to_linear(v), lambda v: linear_to_db(v)))

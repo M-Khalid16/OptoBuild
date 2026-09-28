@@ -25,6 +25,12 @@ from optobuild.components.fiber import LinearFiber
 from optobuild.components.fso import FSOChannel
 from optobuild.components.modulators import MachZehnderModulator, NRZGenerator
 from optobuild.components.nonlinear import NonlinearFiber, OpticalPulseSource
+from optobuild.components.photonic import (
+    AddDropRing,
+    AllPassRing,
+    BraggGrating,
+    MachZehnderInterferometer,
+)
 from optobuild.components.polarization import (
     PolarizationBeamCombiner,
     PolarizationBeamSplitter,
@@ -67,6 +73,12 @@ POLARIZATION_COMPONENTS: tuple[type[Component], ...] = (
     RandomPMD,
     DualPolCoherentDSP,
 )
+PHOTONIC_COMPONENTS: tuple[type[Component], ...] = (
+    AllPassRing,
+    AddDropRing,
+    MachZehnderInterferometer,
+    BraggGrating,
+)
 
 BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *REFERENCE_COMPONENTS,
@@ -75,6 +87,7 @@ BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *FSO_COMPONENTS,
     *COHERENT_COMPONENTS,
     *POLARIZATION_COMPONENTS,
+    *PHOTONIC_COMPONENTS,
 )
 
 __all__ = [
@@ -83,5 +96,6 @@ __all__ = [
     "FSO_COMPONENTS",
     "NONLINEAR_COMPONENTS",
     "OPTICAL_LINK_COMPONENTS",
+    "PHOTONIC_COMPONENTS",
     "POLARIZATION_COMPONENTS",
 ]
