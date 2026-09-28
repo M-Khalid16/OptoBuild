@@ -142,11 +142,27 @@ Status: complete (v0.7.0).
 Status: complete (v0.8.0). Known limitation: blind DP-64QAM convergence is
 unreliable (needs training/pilot-aided equalization, deferred).
 
+## Phase 7 — Photonic circuit simulation ✅
+
+* Integrated-optics models: dispersive lossy waveguides, directional
+  couplers, all-pass and add-drop microrings, MZIs, uniform Bragg gratings
+  (coupled-mode theory), thin-film transfer-matrix method.
+* Frequency-domain S-matrix circuit solver for arbitrary netlists with
+  feedback and reflections; wavelength sweeps.
+* Resonance analysis: FSR, FWHM, loaded Q, extinction, insertion loss,
+  group delay.
+* Signal-flow components (rings, MZI, Bragg grating) for time-domain links;
+  ring-filter demo; GUI device-response view; example with coupled rings
+  (ADR-0018).
+
+Status: complete (v0.9.0). Deferred: mode solver, thermal/electro-optic
+phase-shifter models, apodized/chirped gratings as components, netlists in
+project files, back-reflection feedback in time-domain links.
+
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 7 | Photonic circuit simulation (transfer/S-matrix) |
 | 8 | CW, semiconductor and fiber laser modelling |
 | 9 | Ultrafast pulse propagation and mode-locked cavities (iterative executor) |
 | 10 | Optimization, Monte Carlo, reports, plugins, acceleration |

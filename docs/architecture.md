@@ -68,7 +68,7 @@ It displays results produced by `analysis`/`engine` and edits graphs through
 | `signals` | `OpticalSignal`, `ElectricalSignal`, `DigitalSequence`, `SymbolSequence`, noise representation, `SignalKind` | algorithms beyond trivial accessors (power, wavelength) |
 | `physics` | equations: fiber attenuation/dispersion, MZM transfer, photodetection, noise PSDs; later atmosphere, lasers, photonic elements | ports, parameters schemas, GUI, file I/O |
 | `analysis` | BER counting, Q-factor, eye diagram data, spectra, power, later EVM/OSNR/constellation/link budget | signal generation |
-| `solvers` | linear frequency-domain propagation, SSFM (P4), ODE (P8), cavity round-trip (P9) | component metadata |
+| `solvers` | linear frequency-domain propagation, SSFM (P4), S-matrix circuits (P7), ODE (P8), cavity round-trip (P9) | component metadata |
 | `components` | `Component` ABC (`base`), `PortSpec`/`ParameterSpec` (`spec`), `ComponentRegistry` (`registry`), built-in list (`library`), reference blocks (`reference`), concrete blocks grouped by category | equations (delegate to physics) |
 | `graph` | graph data model, connections, port-kind checking, topology, cycle detection | execution |
 | `engine` | `RunContext` implementation, DAG executor, cache & invalidation, progress, cancellation; later iterative executor | physics |
@@ -104,7 +104,7 @@ physics/    prbs.py sources.py modulation.py fiber.py noise.py detection.py
             | atmospheric/ laser/ photonics/
 analysis/   ber, decision, eye, spectrum, power | evm, osnr, constellation, link_budget, pulse
 numerics/   grid, fft, filters, sampling (diagnostics)
-solvers/    linear_propagation | ssfm/ ode/ cavity/
+solvers/    linear_propagation | ssfm/ circuit/ ode/ cavity/
 components/ sources.py modulators.py fiber.py detectors.py electrical.py analyzers.py
             (flat modules while each holds a few classes; split into packages when they grow)
             | amplifiers/ passive/ dsp/ fso/ photonics/ laser/

@@ -29,3 +29,4 @@ nav:
       - ADR-0015 FSO channel: decisions/0015-fso-channel.md
       - ADR-0016 Coherent single-pol: decisions/0016-coherent-single-pol.md
       - ADR-0017 Dual-pol coherent: decisions/0017-dual-polarization-coherent.md
+      - ADR-0018 Photonic circuits: decisions/0018-photonic-circuits.md

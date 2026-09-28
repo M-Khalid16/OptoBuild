@@ -1,6 +1,6 @@
 # Physics models
 
-Status: **Phase 2, 4, 5, 6 and 6b models implemented and validated** (v0.8.0). Later-phase
+Status: **Phase 2, 4, 5, 6, 6b and 7 models implemented and validated** (v0.9.0). Later-phase
 models are listed in §2 as *not started*; nothing here describes code that
 does not exist.
 
@@ -406,6 +406,67 @@ at the window edges.
    with 80 km CD + PMD + LO offset; DP-QPSK BER Poisson band; DP-16QAM;
    GSOP + deskew restore the unimpaired SNR (±0.01 dB).
 
+### 3.22 Waveguides, couplers, rings and MZIs — `physics.integrated_optics`
+
+1. `h = e^{−αL/2} e^{−iβL}`, `β(ν) = 2π/c [n_eff ν₀ + n_g (ν − ν₀)]`; coupler
+   `[[t, −iκ], [−iκ, t]]`, `t = √(1−κ²)`; all-pass `H = (t − A)/(1 − tA)`,
+   `A = a e^{−iφ}`; add-drop `H_t = (t₁ − t₂A)/(1 − t₁t₂A)`,
+   `H_d = −κ₁κ₂√A/(1 − t₁t₂A)`; MZI `C_out diag(h₁, h₂) C_in`;
+   `FSR = c/(n_g L)`; exact half-depth width
+   `Δφ = 4 arcsin((1 − ta)/√(2(1 + t²a²)))`; loaded Q (high-Q limit)
+   `π n_g L √(ta)/(λ(1 − ta))`.
+2. L [m], α [1/m] (display dB/cm), κ² [1], n_eff, n_g [1], ν [Hz], λ₀ [m].
+3. Single mode; linear dispersion about λ₀; lossless, wavelength-independent
+   couplers; no back-reflection; polarization independent.
+4. Within the band where `n_g` is constant; weak coupling not required.
+5. Closed forms, evaluated per frequency (vectorized).
+6. No mode solver, no bend loss model (use α), no thermal tuning model
+   (`phase_shift` parameter), no coupler dispersion.
+7. Bogaerts et al., Laser Photonics Rev. 6, 47 (2012); Yariv, Electron. Lett.
+   36, 321 (2000); Heebner, Grover & Ibrahim, *Optical Microresonators* (2008).
+8. `tests/validation/test_integrated_optics.py`: group delay `n_g L/c`;
+   coupler unitarity; T_min/T_max, FSR, FWHM, Q from sampled spectra vs exact
+   forms; critical coupling; lossless all-pass delay `τ_rt (1+t)/(1−t)`;
+   add-drop and MZI vs the circuit solver; `|cross|² = cos²(Δφ/2)`.
+   `tests/integration/test_photonic_components.py`: component transfer =
+   closed form; energy conservation of lossless devices.
+
+### 3.23 S-matrix circuit solver — `solvers.circuit`
+
+1. `b = S a` per element; internal connections `a_i = G b_i`;
+   `S_ext = S_ee + S_ei (I − G S_ii)⁻¹ G S_ie`.
+2. Wave amplitudes [√W]; S dimensionless.
+3. Linear, time-invariant elements; unexposed unconnected ports are
+   reflection-free terminations.
+4. `I − G S_ii` non-singular (any loss; a lossless resonance exactly on the
+   grid raises `NumericalStabilityError`).
+5. Batched dense solve over frequency; condition number checked (< 1e12).
+6. O(n_freq n_i³): tens to hundreds of internal ports.
+7. Filipsson, IEEE Trans. MTT 29, 1081 (1981).
+8. Closed forms of rings/MZI to 1e-12; reciprocity; unitarity of lossless
+   circuits; π-shifted grating vs TMM (3.24).
+
+### 3.24 Bragg gratings (CMT) and thin films (TMM) — `physics.integrated_optics`, `physics.multilayer`
+
+1. CMT: `r = −iκ sinh(sL)/(s cosh(sL) + iδ sinh(sL))`, `t = s e^{−iπL/Λ}/(…)`,
+   `s² = κ² − δ²`, `δ = β − π/Λ`; `R_max = tanh²(κL)`;
+   `Δλ = λ²/(π n_g) √(κ² + (π/L)²)`; square profile `κ = 2Δn/λ`.
+   TMM: `M_j = [[cos δ_j, i sin δ_j/n_j], [i n_j sin δ_j, cos δ_j]]`,
+   `r = (n₀B − C)/(n₀B + C)`; quarter-wave `R = ((n₀ − Y)/(n₀ + Y))²`,
+   `Y = (n_H/n_L)^{2N} n_s`.
+2. κ [1/m], Λ [m], L [m], δ [1/m]; indices [1] (absorbing: n − ik).
+3. CMT: synchronous approximation, first-order grating, weak modulation;
+   TMM: normal incidence, abrupt isotropic layers.
+4. CMT error O((Δn/n)²) near the Bragg band.
+5. Closed forms; TMM by 2×2 products per wavelength.
+6. No apodization/chirp (cascade uniform sections in the circuit solver),
+   no cladding-mode coupling.
+7. Erdogan, JLT 15, 1277 (1997); Kogelnik, Bell Syst. Tech. J. 55, 109
+   (1976); Macleod, *Thin-Film Optical Filters*, 4th ed. (2010).
+8. CMT vs TMM `|ΔR| < 10 (Δn/n)²` (measured 2–4 × 10⁻⁷); peak reflectance and
+   first-zero bandwidth; π-shifted grating (solver) vs TMM; quarter-wave
+   stack, Fresnel interface, absorption.
+
 ## 4. References
 
 * G. P. Agrawal, *Nonlinear Fiber Optics*, 6th ed., Academic Press, 2019.
@@ -413,6 +474,9 @@ at the window edges.
 * B. E. A. Saleh, M. C. Teich, *Fundamentals of Photonics*, 3rd ed., Wiley, 2019.
 * D. N. Godard, "Self-recovering equalization and carrier tracking in two-dimensional data communication systems," *IEEE Trans. Commun.* 28, 1867 (1980).
 * G. J. Foschini, C. D. Poole, "Statistical theory of polarization dispersion in single mode fibers," *J. Lightwave Technol.* 9, 1439 (1991).
+* W. Bogaerts et al., "Silicon microring resonators," *Laser Photonics Rev.* 6, 47 (2012).
+* T. Erdogan, "Fiber grating spectra," *J. Lightwave Technol.* 15, 1277 (1997).
+* H. A. Macleod, *Thin-Film Optical Filters*, 4th ed., CRC Press, 2010.
 * J. G. Proakis, M. Salehi, *Digital Communications*, 5th ed., McGraw-Hill, 2008.
 * A. V. Oppenheim, A. S. Willsky, *Signals and Systems*, 2nd ed., Prentice Hall, 1997.
 * W. E. Thomson, "Delay networks having maximally flat frequency characteristics," *Proc. IEE* 96 (1949).

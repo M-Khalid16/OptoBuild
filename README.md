@@ -4,7 +4,14 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 6b complete (v0.8.0)** — dual-polarization coherent
+**Current status: Phase 7 complete (v0.9.0)** — photonic circuits:
+waveguides, directional couplers, all-pass and add-drop microrings, MZIs and
+Bragg gratings (coupled-mode theory, checked against a thin-film
+transfer-matrix method), an S-matrix netlist solver for circuits with
+feedback, and resonance analysis (FSR, FWHM, Q, extinction, group delay).
+Devices also work inside time-domain links (`optobuild demo ring_filter`,
+GUI "Device response" tab); wavelength sweeps in
+`examples/photonic_circuits.py`. Phase 6b (v0.8.0) added dual-polarization coherent
 links: PBS/PBC, polarization controller, random PMD (waveplate model),
 polarization-diverse receiver with hybrid imbalance and I/Q skew, and a DSP
 with GSOP, deskew and a blind 2×2 CMA/RDE equalizer (`optobuild demo
