@@ -2,7 +2,7 @@
 
 Registries are ordinary objects (no global mutable singleton). The built-in
 library is obtained with :func:`builtin_registry`, which returns a fresh
-registry each call; plugins (Phase 10) will add entry-point discovery.
+registry each call; ``optobuild.plugins.discovery`` adds entry-point plugins.
 """
 
 from __future__ import annotations
