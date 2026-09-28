@@ -27,3 +27,4 @@ nav:
       - ADR-0013 GUI architecture: decisions/0013-gui-architecture.md
       - ADR-0014 SSFM: decisions/0014-ssfm.md
       - ADR-0015 FSO channel: decisions/0015-fso-channel.md
+      - ADR-0016 Coherent single-pol: decisions/0016-coherent-single-pol.md

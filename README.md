@@ -4,7 +4,12 @@ A scientifically validated optical and photonics simulation platform, built
 incrementally: foundation → first validated optical link → GUI → SSFM → FSO →
 coherent systems → photonic circuits → lasers → ultrafast → optimization/HPC.
 
-**Current status: Phase 5 complete (v0.6.0)** — free-space optical links:
+**Current status: Phase 6 complete (v0.7.0)** — single-polarization coherent
+links: QPSK/16-QAM/64-QAM, RRC shaping, IQ modulator, laser phase noise,
+OSNR, intradyne receiver, DSP (CD compensation, frequency-offset and timing
+recovery, blind phase search), EVM/SNR/BER analysis and a constellation view
+(`optobuild demo coherent_link`, `examples/coherent_link.py`). Measured SNR
+matches `2 B_ref OSNR / R_s` within 0.12 dB. Phase 5 (v0.6.0) added free-space optical links:
 Gaussian-beam geometry and pointing, fog/haze/rain attenuation, log-normal
 and Gamma-Gamma turbulence, beam wander, outage and link budget
 (`optobuild fso-budget --distance '2 km' --visibility '5 km' ...`,

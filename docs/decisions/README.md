@@ -21,5 +21,6 @@ new ADR that *supersedes* the old one.
 | [0013](0013-gui-architecture.md) | GUI architecture (Qt-free models + Qt views) | Accepted |
 | [0014](0014-ssfm.md) | Split-step Fourier solver for the NLSE | Accepted |
 | [0015](0015-fso-channel.md) | Free-space optical channel model | Accepted |
+| [0016](0016-coherent-single-pol.md) | Single-polarization coherent transmission and DSP | Accepted |
 
 Template: [template.md](template.md).

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "optobuild"
-version = "0.6.0"
-description = "Scientifically validated optical and photonics simulation platform (fiber, nonlinear and free-space links; GUI)."
+version = "0.7.0"
+description = "Scientifically validated optical and photonics simulation platform (IM/DD, coherent, nonlinear and free-space links; GUI)."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Mamoona Khalid" }]

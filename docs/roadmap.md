@@ -117,11 +117,24 @@ vector/multichannel propagation, higher-order adaptive schemes.
 Status: complete (v0.6.0). Deferred: phase screens / coherent FSO, temporal
 fading, slant paths with Cn²(h), snow, angle-of-arrival.
 
+## Phase 6 — Coherent optical communication (single polarization) ✅
+
+* Symbols, Gray constellations, RC/RRC shaping; IQ modulator from nested
+  MZMs; laser linewidth; amplifier with output OSNR; intradyne receiver with
+  balanced detection; DSP (CD compensation, two-pass FOE, matched filter,
+  Oerder–Meyr timing, BPS); EVM/SNR/SER/BER analyzer; constellation view
+  in the GUI (ADR-0016).
+* Validation against exact AWGN theory, the OSNR→SNR relation, receiver-noise
+  theory and synthetic DSP tests.
+
+Status: complete (v0.7.0). **Phase 6b (next):** dual polarization
+(PBS/PBC, 2×2 CMA/LMS equalizer, PMD), plus I/Q skew and hybrid imbalance.
+
 ## Later phases
 
 | Phase | Topic |
 |---|---|
-| 6 | Coherent optical communication (dual-pol, DSP, EVM, constellations, OSNR) |
+| 6b | Dual-polarization coherent systems, adaptive MIMO equalization, PMD |
 | 7 | Photonic circuit simulation (transfer/S-matrix) |
 | 8 | CW, semiconductor and fiber laser modelling |
 | 9 | Ultrafast pulse propagation and mode-locked cavities (iterative executor) |

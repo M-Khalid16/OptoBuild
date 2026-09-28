@@ -29,7 +29,7 @@ SUBSYSTEMS = (
 
 
 def test_version() -> None:
-    assert optobuild.__version__ == "0.6.0"
+    assert optobuild.__version__ == "0.7.0"
 
 
 def test_all_subsystems_present_and_documented() -> None:

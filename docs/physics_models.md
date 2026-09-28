@@ -1,6 +1,6 @@
 # Physics models
 
-Status: **Phase 2, 4 and 5 models implemented and validated** (v0.6.0). Later-phase
+Status: **Phase 2, 4, 5 and 6 (single-polarization) models implemented and validated** (v0.7.0). Later-phase
 models are listed in §2 as *not started*; nothing here describes code that
 does not exist.
 
@@ -42,7 +42,11 @@ Every implemented model has:
 | Atmospheric attenuation (Kim/Kruse, rain) | 5 | ✅ validated | `physics.atmospheric` | `optobuild.channel.fso` |
 | Turbulence (Rytov, log-normal, Gamma-Gamma) | 5 | ✅ validated | `physics.turbulence` | `optobuild.channel.fso` |
 | FSO channel gain, outage, link budget | 5 | ✅ validated | `physics.fso_channel`, `analysis.link_budget` | `optobuild.channel.fso`, `optobuild fso-budget` |
-| Coherent receiver / DSP | 6 | not started | — | — |
+| Constellations, RC/RRC shaping | 6 | ✅ validated | `analysis.constellations`, `numerics.pulse_shaping` | `optobuild.dsp.symbol_mapper`, `optobuild.dsp.pulse_shaper` |
+| IQ modulator, laser phase noise, ASE/OSNR | 6 | ✅ validated | `physics.modulation`, `physics.sources`, `physics.noise` | `optobuild.modulator.iq`, `optobuild.source.cw_laser`, `optobuild.amplifier.ase_noise_loader` |
+| Coherent receiver (hybrid + balanced PDs) | 6 | ✅ validated | `physics.detection` | `optobuild.detector.coherent_receiver` |
+| Coherent DSP, EVM/SNR/BER analysis | 6 | ✅ validated | `analysis.coherent_dsp` | `optobuild.dsp.coherent_dsp`, `optobuild.analyzer.coherent` |
+| Dual polarization, MIMO equalizer, PMD | 6b | not started | — | — |
 | Photonic circuit elements | 7 | not started | — | — |
 | Laser rate equations, fiber lasers | 8 | not started | — | — |
 | Ultrafast / mode-locked cavities | 9 | not started | — | — |
@@ -292,6 +296,68 @@ at the window edges.
 8. Mean gain and outage vs 3×10⁵ Monte Carlo samples for four channel
    configurations (5σ); component trial gains vs analytic mean/outage over
    3000 engine trials (`tests/integration/test_fso_component.py`).
+
+### 3.16 Constellations and pulse shaping — `analysis.constellations`, `numerics.pulse_shaping`
+
+1. Square M-QAM from two Gray PAM axes, unit E_s; exact AWGN
+   `SER = 1 − (1 − P_L)²`, `P_L = 2(1 − 1/√M) Q(√(3 SNR/(M−1)))`; BPSK/QPSK BER.
+   RC `H(f)` (raised cosine, roll-off β), RRC `√H`; TX `sps·H`, RX matched `H`.
+2. SNR = E_s/N0; R_s [Bd]; β ∈ [0, 1].
+3. Equiprobable symbols; ideal linear filters; periodic symbol pattern.
+4. `(1+β)R_s/2 ≤ fs/2`.
+5. Frequency-domain filters on the grid (β = 0 edge bin = ½).
+6. No Gray BER formula for M ≥ 16 (count bits instead).
+7. Proakis & Salehi, *Digital Communications*, 5th ed., sec. 4.3, 9.2.
+8. `tests/validation/test_constellations.py`, `test_pulse_shaping.py`: Gray
+   neighbours, unit energy, SER/BER vs Monte Carlo (5σ); exact zero ISI for
+   β ∈ {0, 0.1, 0.5, 1}, sps ∈ {2, 4, 8}; folded-spectrum flatness.
+
+### 3.17 IQ modulator, phase noise, ASE — `physics.modulation`, `physics.sources`, `physics.noise`
+
+1. `A_out/A_in = √IL/2 [T(v_I) + i T(v_Q)]`, `T` = MZM at null
+   (`−sin(πv/2V_π)` for infinite ER); Wiener phase with increments
+   `N(0, 2πΔν dt)`; ASE per pol `N = P/(2 OSNR B_ref)`, complex white noise
+   variance `N fs`; `SNR = 2 B_ref OSNR/(p R_s)`.
+2. V [V], Δν [Hz], N [W/Hz], B_ref [Hz].
+3. Ideal couplers and 90° phase; Lorentzian laser line; white ASE.
+4. Linear regime for |v| ≪ V_π (the sine is part of the model).
+5. Closed forms; seeded Gaussian draws.
+6. No modulator bandwidth, bias drift, I/Q skew; phase noise not periodic in the window.
+7. Seimetz (2009) ch. 4; Agrawal *FOCS* sec. 3.5; Essiambre et al., JLT 28, 662 (2010).
+8. `test_coherent_physics.py`: closed form, linear regime, leakage;
+   phase-increment variance (5σ); ASE power and OSNR definition.
+
+### 3.18 Coherent receiver — `physics.detection.coherent_detection`
+
+1. Hybrid outputs `(E_s ± E_lo)/2`, `(E_s ± iE_lo)/2`; balanced currents
+   `i_I + i i_Q = R E_s·conj(E_lo)`; per-diode shot + thermal noise.
+2. R [A/W], P [W], T [K], R_L [Ω].
+3. Ideal hybrid, identical diodes, aligned single-pol LO.
+4. Gaussian shot-noise regime.
+5. Four square-law detections reusing `photocurrent` / `pin_noise`.
+6. No hybrid imbalance, no finite CMRR, no bandwidth limit.
+7. Kikuchi, JLT 34, 157 (2016).
+8. Noiseless identity (1e-15); per-quadrature variance
+   `(2qR(P_s+P_lo)/2 + 8kT/R_L)·fs/2` (5σ); end-to-end
+   `1/SNR = 1/SNR_ase + 1/SNR_rx` within 0.12 dB.
+
+### 3.19 Coherent DSP and analysis — `analysis.coherent_dsp`
+
+1. CD compensation `exp(+iβ2Lω²/2)`; Oerder–Meyr timing
+   `τ/T = −arg Σ|y_n|² e^{−i2πn/sps}/(2π)`; 4th-power FOE; BPS (B = 32, 2N+1 = 33);
+   data-aided SNR with LS gain; EVM = 1/√SNR.
+2. D·L [s/m] (display ps/nm); τ [s]; Δf [Hz].
+3. Square-QAM/BPSK symmetry; |Δf| < R_s/8; sps ≥ 3 for Oerder–Meyr.
+4. Laser linewidth × T ≲ 1e-4 (QPSK), smaller for 16-QAM.
+5. Two-pass FOE around the matched filter (ADR-0016).
+6. No adaptive equalizer (needed for PMD, 6b); β3 not compensated;
+   rotation ambiguity resolved with the reference.
+7. Oerder & Meyr, IEEE Trans. Commun. 36, 605 (1988); Pfau et al., JLT 27, 989 (2009).
+8. `test_coherent_dsp.py`: FOE within 1e-6 R_s; BPS < 0.2 dB vs ideal phase;
+   phase-noise tracking without slips; fractional timing; EVM = 1/√SNR.
+   `test_coherent_link.py`: measured SNR = OSNR formula (±0.12 dB) at 10/15/20 dB;
+   QPSK BER and 16-QAM SER within Poisson bands of the exact values;
+   80 km CD compensation with 1 GHz LO offset; receiver noise; phase noise.
 
 ## 4. References
 

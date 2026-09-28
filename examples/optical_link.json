@@ -1,7 +1,7 @@
 {
   "format": "optobuild-project",
   "schema_version": 2,
-  "optobuild_version": "0.6.0",
+  "optobuild_version": "0.7.0",
   "metadata": {
     "title": "10 Gb/s NRZ-OOK reference link"
   },
@@ -52,7 +52,7 @@
     {
       "name": "laser",
       "type_id": "optobuild.source.cw_laser",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "parameters": {
         "power": 0.001,
         "wavelength": 1.55e-06,
@@ -60,7 +60,8 @@
         "frequency_offset": 0.0,
         "n_samples": 2048,
         "sample_rate": 160000000000.0,
-        "timing_source": "layout"
+        "timing_source": "layout",
+        "linewidth": 0.0
       },
       "units": {
         "power": "W",
@@ -68,7 +69,8 @@
         "phase": "rad",
         "frequency_offset": "Hz",
         "n_samples": "1",
-        "sample_rate": "Hz"
+        "sample_rate": "Hz",
+        "linewidth": "Hz"
       }
     },
     {

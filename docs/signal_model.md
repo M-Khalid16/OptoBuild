@@ -2,8 +2,9 @@
 
 Status: **implemented in Phase 1** for `OpticalSignal`, `ElectricalSignal`
 and `DigitalSequence` (`optobuild.signals`). `SymbolSequence`,
-`NoiseRepresentation` (tracked noise), `ComplexEnvelope` as a separate base
-class and `PulseTrain` are specified here but **not yet implemented**; they
+`SymbolSequence` (Phase 6). `NoiseRepresentation` (tracked noise),
+`ComplexEnvelope` as a separate base class and `PulseTrain` are specified
+here but **not yet implemented**; they
 are added when the first component needs them. Decisions: ADR-0001
 (representation), ADR-0002 (FFT convention), ADR-0003 (units).
 
