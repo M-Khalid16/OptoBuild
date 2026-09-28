@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+import numpy as np
+
 from optobuild.components.base import TIMING_SOURCE_SPEC, Component, RunContext, require_layout
 from optobuild.components.spec import ComponentCategory, ParameterSpec, ParameterType, PortSpec
 from optobuild.core.diagnostics import Diagnostic, Severity
@@ -16,7 +18,11 @@ from optobuild.core.errors import SamplingError
 from optobuild.core.units import wavelength_to_frequency
 from optobuild.numerics.grid import TimeGrid
 from optobuild.physics.prbs import PRBS_POLYNOMIALS, prbs, prbs_period
-from optobuild.physics.sources import cw_field, frequency_offset_is_periodic
+from optobuild.physics.sources import (
+    cw_field,
+    frequency_offset_is_periodic,
+    wiener_phase_noise,
+)
 from optobuild.signals import DigitalSequence, OpticalSignal, SignalKind
 from optobuild.signals import metadata as meta
 
@@ -28,12 +34,15 @@ class CWLaser(Component):
     detunes the laser from it. The sampling grid comes from ``n_samples`` and
     ``sample_rate``, or from the global layout when ``timing_source="layout"``;
     it must match the electrical drive of the modulator it feeds.
+    A non-zero ``linewidth`` adds Wiener phase noise (Lorentzian line,
+    physics.sources.wiener_phase_noise).
     """
 
     type_id = "optobuild.source.cw_laser"
-    version = "1.1.0"
+    version = "1.2.0"
     display_name = "CW laser"
     category = ComponentCategory.SOURCE
+    stochastic = True
     output_ports = (PortSpec("out", SignalKind.OPTICAL, "CW optical field"),)
     parameter_specs = (
         ParameterSpec(
@@ -84,6 +93,16 @@ class CWLaser(Component):
             minimum_inclusive=False,
         ),
         TIMING_SOURCE_SPEC,
+        ParameterSpec(
+            "linewidth",
+            ParameterType.FLOAT,
+            default=0.0,
+            unit="Hz",
+            display_unit="kHz",
+            minimum=0.0,
+            symbol="dnu",
+            description="Lorentzian FWHM linewidth (0 = ideal)",
+        ),
     )
 
     @property
@@ -143,6 +162,9 @@ class CWLaser(Component):
         else:
             grid = TimeGrid.from_sample_rate(p["n_samples"], p["sample_rate"])
         field = cw_field(grid, p["power"], p["phase"], p["frequency_offset"])
+        if p["linewidth"] > 0:
+            phi = wiener_phase_noise(context.rng, p["linewidth"], grid.dt, grid.n_samples)
+            field = field * np.exp(1j * phi)[None, :]
         return {"out": OpticalSignal(grid, field, self.frequency, {"source": self.name})}
 
 

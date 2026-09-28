@@ -245,8 +245,111 @@ def fso_link_project(
 
 DEMOS["fso_link"] = fso_link_project
 
+
+def coherent_link_project(
+    seed: int = 11,
+    *,
+    modulation: str = "qpsk",
+    symbol_rate: float = 32e9,
+    prbs_order: int = 15,
+    samples_per_symbol: int = 4,
+    fiber_length_m: float = 80e3,
+    osnr_db: float = 15.0,
+    tx_linewidth: float = 100e3,
+    lo_linewidth: float = 100e3,
+    lo_offset: float = 1e9,
+    rolloff: float = 0.1,
+) -> Project:
+    """Single-polarization coherent link (Phase 6)::
+
+        PRBS -> symbol mapper -> RRC pulse shaper -> IQ modulator <- CW laser (linewidth)
+        IQ modulator -> fiber -> amplifier (gain = span loss, output OSNR)
+                     -> coherent receiver <- LO laser (offset)
+        receiver -> DSP (CD compensation, matched filter, FOE, BPS) -> analyzer (ref: mapper)
+
+    The DSP compensates the fiber's accumulated dispersion D L.
+    """
+    from optobuild.analysis.constellations import bits_per_symbol
+    from optobuild.components.coherent import (
+        ASENoiseLoader,
+        CoherentAnalyzer,
+        CoherentDSP,
+        CoherentReceiver,
+        IQModulator,
+        PulseShaper,
+        SymbolMapper,
+    )
+    from optobuild.components.fiber import LinearFiber
+    from optobuild.components.sources import CWLaser, PRBSGenerator
+    from optobuild.physics.prbs import prbs_period
+
+    k = bits_per_symbol(modulation)
+    n_bits = prbs_period(prbs_order)
+    n_symbols = n_bits if n_bits % k else n_bits // k
+    n_samples = n_symbols * samples_per_symbol
+    fs = symbol_rate * samples_per_symbol
+    df_grid = fs / n_samples
+    lo_offset = round(lo_offset / df_grid) * df_grid  # periodic in the window (no leakage)
+    d = 17e-6
+    g = SimulationGraph()
+    g.add(PRBSGenerator("prbs", {"order": prbs_order, "bit_rate": k * symbol_rate}))
+    g.add(SymbolMapper("mapper", {"modulation": modulation}))
+    g.add(
+        PulseShaper(
+            "shaper",
+            {"samples_per_symbol": samples_per_symbol, "rolloff": rolloff, "amplitude": 1.0},
+        )
+    )
+    g.add(
+        CWLaser(
+            "tx_laser",
+            {"power": 10e-3, "n_samples": n_samples, "sample_rate": fs, "linewidth": tx_linewidth},
+        )
+    )
+    g.add(IQModulator("iq_mod", {"v_pi": 4.0, "insertion_loss": 10**-0.5}))
+    g.add(LinearFiber("fiber", {"length": fiber_length_m, "dispersion": d}))
+    span_loss = 10 ** (0.2 * fiber_length_m / 1e3 / 10)  # 0.2 dB/km, compensated by the amplifier
+    g.add(ASENoiseLoader("ase", {"osnr": 10 ** (osnr_db / 10), "gain": span_loss}))
+    g.add(
+        CWLaser(
+            "lo",
+            {
+                "power": 10e-3,
+                "n_samples": n_samples,
+                "sample_rate": fs,
+                "linewidth": lo_linewidth,
+                "frequency_offset": lo_offset,
+            },
+        )
+    )
+    g.add(CoherentReceiver("receiver"))
+    g.add(CoherentDSP("dsp", {"cd_compensation": d * fiber_length_m}))
+    g.add(CoherentAnalyzer("analyzer"))
+    for src, sp, dst, dp in (
+        ("prbs", "out", "mapper", "bits"),
+        ("mapper", "symbols", "shaper", "symbols"),
+        ("shaper", "i", "iq_mod", "i"),
+        ("shaper", "q", "iq_mod", "q"),
+        ("tx_laser", "out", "iq_mod", "optical_in"),
+        ("iq_mod", "optical_out", "fiber", "in"),
+        ("fiber", "out", "ase", "in"),
+        ("ase", "out", "receiver", "signal"),
+        ("lo", "out", "receiver", "lo"),
+        ("receiver", "i", "dsp", "i"),
+        ("receiver", "q", "dsp", "q"),
+        ("dsp", "symbols", "analyzer", "received"),
+        ("mapper", "symbols", "analyzer", "reference"),
+    ):
+        g.connect(src, sp, dst, dp)
+    title = f"{symbol_rate / 1e9:g} GBd {modulation.upper()} coherent link"
+    return Project(graph=g, seed=seed, metadata={"title": title})
+
+
+DEMOS["coherent_link"] = coherent_link_project
+
 __all__ = [
     "DEMOS",
+    "coherent_link_project",
     "fso_link_project",
     "optical_link_project",
     "reference_project",

@@ -98,3 +98,23 @@ def test_helpers() -> None:
     assert np.mean(np.abs(normalize_power(3 * x)) ** 2) == pytest.approx(1.0)
     y = remove_frequency_offset(np.ones(8), RS / 8, RS)
     np.testing.assert_allclose(y, np.exp(-2j * np.pi * np.arange(8) / 8))
+
+
+@pytest.mark.parametrize("delay", [0.0, 0.37, 1.9, 3.61])
+def test_oerder_meyr_timing_recovers_fractional_delay(delay: float) -> None:
+    """RRC/RC 16-QAM waveform delayed by a fractional number of samples: the estimate and
+    the fractional advance restore the symbol instants (zero ISI to < 1e-2 of the rms
+    symbol; estimator variance with 4096 noiseless symbols ~1e-4 sample)."""
+    from optobuild.analysis.coherent_dsp import estimate_timing_offset, fractional_advance
+    from optobuild.numerics.grid import TimeGrid
+    from optobuild.numerics.pulse_shaping import shape
+
+    sps = 4
+    s, _, _ = _awgn_symbols("16qam", 4096, 99.0, 8)
+    grid = TimeGrid.from_sample_rate(4096 * sps, RS * sps)
+    y = fractional_advance(shape(s, sps, grid, 0.2, "rc"), -delay)  # delay by `delay` samples
+    tau = estimate_timing_offset(y, sps)
+    assert (tau - delay + sps / 2) % sps - sps / 2 == pytest.approx(0.0, abs=2e-3)
+    z = fractional_advance(y, tau)[::sps]
+    shift, _, aligned = align_to_reference(z, s, "16qam")
+    assert np.max(np.abs(aligned - s)) < 1e-2

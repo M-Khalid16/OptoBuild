@@ -9,6 +9,15 @@ from optobuild.components.analyzers import (
     OpticalSpectrumAnalyzer,
 )
 from optobuild.components.base import Component
+from optobuild.components.coherent import (
+    ASENoiseLoader,
+    CoherentAnalyzer,
+    CoherentDSP,
+    CoherentReceiver,
+    IQModulator,
+    PulseShaper,
+    SymbolMapper,
+)
 from optobuild.components.detectors import PINPhotodiode
 from optobuild.components.electrical import DecisionCircuit, LowPassFilter
 from optobuild.components.fiber import LinearFiber
@@ -35,16 +44,27 @@ OPTICAL_LINK_COMPONENTS: tuple[type[Component], ...] = (
 
 NONLINEAR_COMPONENTS: tuple[type[Component], ...] = (OpticalPulseSource, NonlinearFiber)
 FSO_COMPONENTS: tuple[type[Component], ...] = (FSOChannel,)
+COHERENT_COMPONENTS: tuple[type[Component], ...] = (
+    SymbolMapper,
+    PulseShaper,
+    IQModulator,
+    ASENoiseLoader,
+    CoherentReceiver,
+    CoherentDSP,
+    CoherentAnalyzer,
+)
 
 BUILTIN_COMPONENTS: tuple[type[Component], ...] = (
     *REFERENCE_COMPONENTS,
     *OPTICAL_LINK_COMPONENTS,
     *NONLINEAR_COMPONENTS,
     *FSO_COMPONENTS,
+    *COHERENT_COMPONENTS,
 )
 
 __all__ = [
     "BUILTIN_COMPONENTS",
+    "COHERENT_COMPONENTS",
     "FSO_COMPONENTS",
     "NONLINEAR_COMPONENTS",
     "OPTICAL_LINK_COMPONENTS",

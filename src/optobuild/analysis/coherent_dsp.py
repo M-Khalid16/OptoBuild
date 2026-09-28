@@ -4,8 +4,11 @@ Blocks (applied by ``components.coherent.CoherentDSP`` in this order):
 
 1. chromatic-dispersion compensation (``physics.fiber.cd_compensation_transfer``)
 2. RRC matched filter (``numerics.pulse_shaping.matched_filter``)
-3. sampling phase: integer offset maximizing mean |y|^2 at the symbol
-   instants (for Nyquist pulses the eye is widest there)
+3. timing: Oerder-Meyr square-law estimate of the fractional symbol-timing
+   offset, tau/T = -arg(sum_n |y_n|^2 exp(-i 2 pi n / sps)) / (2 pi)
+   (Oerder & Meyr, IEEE Trans. Commun. 36, 605 (1988); needs sps >= 3),
+   followed by an exact band-limited fractional delay in the frequency
+   domain; alternatively the integer offset maximizing mean |y|^2
 4. frequency-offset estimation (4th power): for constellations with
    E[s^4] != 0 (QPSK, square QAM), y_k^4 contains a tone at 4 df; df is the
    peak of |FFT(y^4)| (zero-padded x8, parabolic interpolation) / 4.
@@ -40,6 +43,24 @@ def best_sampling_phase(samples: ArrayLike, samples_per_symbol: int) -> int:
     y = np.asarray(samples, dtype=complex)
     m = y.reshape(-1, samples_per_symbol)
     return int(np.argmax(np.mean(np.abs(m) ** 2, axis=0)))
+
+
+def estimate_timing_offset(samples: ArrayLike, samples_per_symbol: int) -> float:
+    """Oerder-Meyr estimate of the symbol-timing offset, in samples, in [0, sps).
+
+    The symbol instants of ``samples`` are at n = tau + k sps.
+    """
+    y = np.asarray(samples, dtype=complex)
+    n = np.arange(y.size)
+    x = np.sum(np.abs(y) ** 2 * np.exp(-2j * np.pi * n / samples_per_symbol))
+    return float((-np.angle(x) / (2 * np.pi) * samples_per_symbol) % samples_per_symbol)
+
+
+def fractional_advance(samples: ArrayLike, shift_samples: float) -> NDArray[np.complex128]:
+    """y(t + shift) for a band-limited periodic sequence (exact via linear phase)."""
+    y = np.asarray(samples, dtype=complex)
+    f = np.fft.fftfreq(y.size)
+    return np.fft.ifft(np.fft.fft(y) * np.exp(2j * np.pi * f * shift_samples))
 
 
 def estimate_frequency_offset(symbols: ArrayLike, symbol_rate: float, zero_pad: int = 8) -> float:
@@ -119,6 +140,8 @@ __all__ = [
     "SYMMETRY",
     "align_to_reference",
     "best_sampling_phase",
+    "estimate_timing_offset",
+    "fractional_advance",
     "blind_phase_search",
     "estimate_frequency_offset",
     "evm_rms",
