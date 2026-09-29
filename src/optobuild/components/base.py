@@ -3,7 +3,8 @@
 A component is a thin, stateless wrapper that:
 
 1. declares metadata (type id, version, name, category, ports, parameters);
-2. validates its parameters (Phase 1);
+2. validates its parameters against the schema at construction time, so a
+   component instance always holds valid, canonical (SI) parameter values;
 3. in :meth:`Component.run`, maps input signals to output signals by calling
    physics / solver / analysis functions. It must not re-implement equations.
 
@@ -23,9 +24,10 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import numpy as np
 
-from optobuild.components.spec import ComponentCategory, ParameterSpec, PortSpec
-from optobuild.core.diagnostics import Diagnostic
-from optobuild.core.errors import InvalidGraphError
+from optobuild.components.spec import ComponentCategory, ParameterSpec, ParameterType, PortSpec
+from optobuild.core.diagnostics import Diagnostic, Severity
+from optobuild.core.errors import InvalidGraphError, InvalidParameterError, SamplingError
+from optobuild.numerics.layout import SimulationLayout
 
 TYPE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 """Type ids are dotted lowercase namespaces, e.g. ``optobuild.source.cw_laser``."""
@@ -49,12 +51,28 @@ class RunContext(Protocol):
         """Logger scoped to the component instance."""
         ...
 
+    @property
+    def layout(self) -> SimulationLayout | None:
+        """Global simulation layout of the run, or ``None`` (ADR-0011)."""
+        ...
+
     def check_cancelled(self) -> None:
         """Raise ``SimulationCancelledError`` if the user cancelled the run."""
         ...
 
     def report_progress(self, fraction: float, message: str = "") -> None:
         """Report progress in [0, 1] for long-running components."""
+        ...
+
+    def record(self, key: str, value: Any) -> None:
+        """Store a named analysis result (numbers, arrays, dataclasses) (ADR-0009).
+
+        Used by analyzers/sinks, which produce results rather than signals.
+        """
+        ...
+
+    def warn(self, diagnostic: Diagnostic) -> None:
+        """Attach a run-time diagnostic (e.g. aliasing risk) to the results."""
         ...
 
 
@@ -76,6 +94,9 @@ class Component(ABC):
     input_ports: ClassVar[tuple[PortSpec, ...]] = ()
     output_ports: ClassVar[tuple[PortSpec, ...]] = ()
     parameter_specs: ClassVar[tuple[ParameterSpec, ...]] = ()
+    stochastic: ClassVar[bool] = False
+    """True if ``run`` draws from ``context.rng`` (ADR-0012). Only stochastic
+    components may use the generator; the engine enforces this."""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -105,7 +126,44 @@ class Component(ABC):
                 hint="Give each component a unique name within its graph.",
             )
         self._name = name
-        self._parameters: dict[str, Any] = dict(parameters or {})
+        given = dict(parameters or {})
+        known = {spec.name: spec for spec in type(self).parameter_specs}
+        unknown = sorted(set(given) - set(known))
+        if unknown:
+            raise InvalidParameterError(
+                f"Component '{name}' ({type(self).type_id}) has no parameter(s) {unknown}.",
+                hint=f"Valid parameters: {sorted(known)}.",
+            )
+        values: dict[str, Any] = {}
+        problems: list[str] = []
+        for spec in known.values():
+            if spec.name in given:
+                raw = given[spec.name]
+            elif spec.required:
+                problems.append(f"'{spec.name}' is required [{spec.unit}]")
+                continue
+            else:
+                raw = spec.default
+            try:
+                values[spec.name] = spec.coerce(raw)
+            except ValueError as exc:
+                problems.append(str(exc))
+        if problems:
+            raise InvalidParameterError(
+                f"Invalid parameters for component '{name}' ({type(self).type_id}): "
+                + "; ".join(problems),
+                hint="Correct the listed values; numeric values are in SI units.",
+            )
+        self._parameters = values
+        diagnostics = self.validate()
+        errors = [d for d in diagnostics if d.severity is Severity.ERROR]
+        if errors:
+            raise InvalidParameterError(
+                f"Invalid parameters for component '{name}' ({type(self).type_id}): "
+                + "; ".join(d.message for d in errors),
+                hint=" ".join(d.hint for d in errors if d.hint) or None,
+            )
+        self._diagnostics = tuple(diagnostics)
 
     @property
     def name(self) -> str:
@@ -117,6 +175,25 @@ class Component(ABC):
         """Read-only view of the parameter values (SI units)."""
         return MappingProxyType(self._parameters)
 
+    @property
+    def diagnostics(self) -> tuple[Diagnostic, ...]:
+        """Non-fatal diagnostics (warnings/info) found when the component was created."""
+        return self._diagnostics
+
+    def with_parameters(self, **changes: Any) -> Component:
+        """New instance with the same name and some parameters changed (validated)."""
+        merged = dict(self._parameters)
+        merged.update(changes)
+        return type(self)(self._name, merged)
+
+    @classmethod
+    def parameter_spec(cls, name: str) -> ParameterSpec:
+        """Schema of parameter ``name``."""
+        for spec in cls.parameter_specs:
+            if spec.name == name:
+                return spec
+        raise InvalidParameterError(f"{cls.type_id} has no parameter '{name}'.")
+
     def inputs(self) -> tuple[PortSpec, ...]:
         """Input ports of this instance (default: the class declaration)."""
         return type(self).input_ports
@@ -126,11 +203,13 @@ class Component(ABC):
         return type(self).output_ports
 
     def validate(self) -> list[Diagnostic]:
-        """Return diagnostics for the current parameters.
+        """Cross-parameter physical checks, run after schema validation.
 
-        Phase 0 defines the hook only. Phase 1 adds schema-driven validation
-        (types, ranges, required values) here; subclasses extend it with
-        cross-parameter physical checks and must call ``super().validate()``.
+        Schema checks (types, ranges, required values) already happened in
+        ``__init__``. Subclasses override this to add checks that involve
+        several parameters, returning ``ERROR`` diagnostics for invalid
+        combinations (which make construction fail) and ``WARNING``s for
+        questionable ones (kept in :attr:`diagnostics`).
         """
         return []
 
@@ -147,4 +226,27 @@ class Component(ABC):
         return f"{type(self).__name__}(name={self._name!r})"
 
 
-__all__ = ["TYPE_ID_PATTERN", "Component", "RunContext"]
+TIMING_SOURCE_SPEC = ParameterSpec(
+    "timing_source",
+    ParameterType.CHOICE,
+    default="parameters",
+    choices=("parameters", "layout"),
+    description="Take bit rate / sequence length / sampling from this component's own "
+    "parameters or from the global simulation layout (ADR-0011)",
+)
+"""Shared parameter of source components that can follow the global layout."""
+
+
+def require_layout(context: RunContext, component_name: str) -> SimulationLayout:
+    """The run's layout, or a ``SamplingError`` explaining how to provide one."""
+    layout = getattr(context, "layout", None)
+    if layout is None:
+        raise SamplingError(
+            f"'{component_name}' has timing_source='layout' but the simulation has no layout.",
+            hint="Set a layout (bit_rate, n_bits, samples_per_bit) on the project or pass "
+            "layout= to the executor, or use timing_source='parameters'.",
+        )
+    return layout
+
+
+__all__ = ["TIMING_SOURCE_SPEC", "TYPE_ID_PATTERN", "Component", "RunContext", "require_layout"]

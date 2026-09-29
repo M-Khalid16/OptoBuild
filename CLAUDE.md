@@ -8,7 +8,8 @@ feature count. Read `docs/architecture.md` and `docs/roadmap.md` first.
   phase (GUI, SSFM, FSO, coherent, photonic circuits, lasers, ultrafast)
   until the current phase's exit criteria hold and all tests pass.
 * Keep the repo runnable after every commit: `pip install -e ".[dev]"`,
-  `pytest`, `ruff check .`, `ruff format --check .` must pass.
+  `pytest`, `ruff check .`, `ruff format --check .` must pass. Install
+  `".[dev,gui]"` to also run the headless GUI tests.
 * Small, logically separated commits. Inspect `git status` first; never
   overwrite unrelated user work.
 
@@ -22,8 +23,9 @@ feature count. Read `docs/architecture.md` and `docs/roadmap.md` first.
   `docs/numerical_conventions.md` (ADR-0002). Time is the last array axis.
 * Internal values are SI; unit conversion only in `optobuild.core.units`
   at boundaries. Store dB quantities linearly. Never compute from strings.
-* Randomness only via the component's `context.rng` (ADR-0008); never the
-  global `numpy.random` state.
+* Randomness only via the component's `context.rng` (ADR-0008), and only in
+  components declaring `stochastic = True` (ADR-0012); never the global
+  `numpy.random` state.
 * No `eval`, no pickle for user data, no global mutable simulation state.
 * No new native/GPU dependencies; Numba only after a benchmark justifies it.
 * Major design changes require a new ADR in `docs/decisions/`.

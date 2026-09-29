@@ -1,5 +1,7 @@
 """Layer 3 - measurement and figure-of-merit algorithms.
 
-BER, Q-factor, EVM, OSNR, eye diagrams, spectra, constellations, link budget
-and pulse metrics. Pure functions of signals; no graph or GUI knowledge.
+Implemented (Phase 2): ``power`` (optical power), ``spectrum`` (optical
+spectrum with RBW), ``decision`` (sampling and threshold decision), ``ber``
+(error counting, confidence bounds, Gaussian BER references), ``eye`` (eye
+diagram data). Pure functions of signals; no graph or GUI knowledge.
 """

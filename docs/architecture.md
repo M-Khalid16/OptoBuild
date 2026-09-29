@@ -40,7 +40,9 @@ may import from its **own or lower** layers only. This is enforced by
  L0  core                                          (constants, units, errors, diagnostics, rng)
 ```
 
-Additional rule: `gui` must not import `physics`, `solvers` or `numerics`.
+Additional rule: `gui` must not import `physics`, `solvers` or `numerics`
+(sole exception: the data-only `optobuild.numerics.layout`, ADR-0013), and
+only `gui` may import Qt/pyqtgraph.
 It displays results produced by `analysis`/`engine` and edits graphs through
 `graph`/`components` metadata.
 
@@ -61,21 +63,21 @@ It displays results produced by `analysis`/`engine` and edits graphs through
 
 | Subsystem | Responsibility | Must NOT contain |
 |---|---|---|
-| `core` | exact SI constants, unit conversion (Phase 1), exception hierarchy, `Diagnostic`, seed handling (Phase 1), logging setup | any signal or physics semantics |
+| `core` | exact SI constants (`constants`), unit conversion (`units`), exception hierarchy (`errors`), `Diagnostic` (`diagnostics`), seed derivation (`rng`), logging helpers (`log`) | any signal or physics semantics |
 | `numerics` | `TimeGrid`, FFT convention (`numerics.fft`), later windows, resampling, generic filters, sampling diagnostics | device physics |
 | `signals` | `OpticalSignal`, `ElectricalSignal`, `DigitalSequence`, `SymbolSequence`, noise representation, `SignalKind` | algorithms beyond trivial accessors (power, wavelength) |
 | `physics` | equations: fiber attenuation/dispersion, MZM transfer, photodetection, noise PSDs; later atmosphere, lasers, photonic elements | ports, parameters schemas, GUI, file I/O |
 | `analysis` | BER counting, Q-factor, eye diagram data, spectra, power, later EVM/OSNR/constellation/link budget | signal generation |
-| `solvers` | linear frequency-domain propagation, SSFM (P4), ODE (P8), cavity round-trip (P9) | component metadata |
-| `components` | `Component` ABC, `PortSpec`, `ParameterSpec`, registry, concrete blocks grouped by category | equations (delegate to physics) |
+| `solvers` | linear frequency-domain propagation, SSFM (P4), S-matrix circuits (P7), ODE/SDE, laser dynamics and EDFA (P8), GNLSE (RK4IP) and cavity round-trip iteration (P9) | component metadata |
+| `components` | `Component` ABC (`base`), `PortSpec`/`ParameterSpec` (`spec`), `ComponentRegistry` (`registry`), built-in list (`library`), reference blocks (`reference`), concrete blocks grouped by category | equations (delegate to physics) |
 | `graph` | graph data model, connections, port-kind checking, topology, cycle detection | execution |
-| `engine` | `RunContext` implementation, DAG executor, cache & invalidation, progress, cancellation; later iterative executor | physics |
+| `engine` | `RunContext` implementation, DAG executor, cache & invalidation, progress, cancellation (cavity iteration lives in `solvers.cavity`, ADR-0020) | physics |
 | `persistence` | project JSON/YAML, schema versions & migrations, HDF5 results | pickle of user data |
-| `sweeps`, `optimization` | parameter sweeps, Monte Carlo, optimizers built on the engine | physics |
-| `reporting` | Matplotlib figures, report generation | physics |
+| `sweeps`, `optimization` | parameter sweeps, Monte Carlo (serial or process-parallel), optimizers built on the engine (ADR-0021) | physics |
+| `reporting` | plot curves shared with the GUI (`figures`), dependency-free SVG, HTML reports of runs, sweeps and optimizations | physics |
 | `plugins` | entry-point discovery and registration of third-party components | — |
 | `cli` | command-line entry points | physics |
-| `gui` | PySide6 application, schematic editor, auto-generated parameter forms | physics, numerics |
+| `gui` | Qt-free models (`forms`, `document`, `plotdata` re-exporting `reporting.figures`) and PySide6 views (`gui.qt`): schematic editor, auto-generated parameter forms, results viewer (ADR-0013) | physics, solvers, numerics (except the data-only `numerics.layout`) |
 
 ## 4. Repository layout
 
@@ -98,10 +100,13 @@ Nested subpackages are created **when their first module is written**, not in
 advance, to avoid empty scaffolding. The planned nesting is:
 
 ```
-physics/    fiber/ modulation/ detection/ noise/ sources/ | atmospheric/ laser/ photonics/
-analysis/   ber, qfactor, eye, spectrum, power | evm, osnr, constellation, link_budget, pulse
-solvers/    linear_propagation | ssfm/ ode/ cavity/
-components/ sources/ modulators/ fiber/ detectors/ electrical/ analyzers/
+physics/    prbs.py sources.py modulation.py fiber.py noise.py detection.py
+            | atmospheric/ laser/ photonics/
+analysis/   ber, decision, eye, spectrum, power | evm, osnr, constellation, link_budget, pulse
+numerics/   grid, fft, filters, sampling (diagnostics)
+solvers/    linear_propagation | ssfm/ circuit/ ode/ cavity/
+components/ sources.py modulators.py fiber.py detectors.py electrical.py analyzers.py
+            (flat modules while each holds a few classes; split into packages when they grow)
             | amplifiers/ passive/ dsp/ fso/ photonics/ laser/
 engine/     context, executor, cache | iterative
 ```

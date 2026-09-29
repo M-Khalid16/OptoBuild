@@ -1,0 +1,341 @@
+{
+  "format": "optobuild-project",
+  "schema_version": 2,
+  "optobuild_version": "0.7.0",
+  "metadata": {
+    "title": "10 Gb/s NRZ-OOK reference link"
+  },
+  "simulation": {
+    "seed": 2026,
+    "layout": {
+      "bit_rate": 10000000000.0,
+      "n_bits": 2047,
+      "samples_per_bit": 16
+    }
+  },
+  "components": [
+    {
+      "name": "prbs",
+      "type_id": "optobuild.source.prbs",
+      "version": "1.1.0",
+      "parameters": {
+        "order": 11,
+        "n_bits": 0,
+        "seed": 0,
+        "bit_rate": 10000000000.0,
+        "timing_source": "layout"
+      },
+      "units": {
+        "n_bits": "1",
+        "seed": "1",
+        "bit_rate": "bit/s"
+      }
+    },
+    {
+      "name": "nrz",
+      "type_id": "optobuild.modulator.nrz_generator",
+      "version": "1.1.0",
+      "parameters": {
+        "samples_per_bit": 16,
+        "low": -2.0,
+        "high": 2.0,
+        "rise_time": 3e-11,
+        "timing_source": "layout"
+      },
+      "units": {
+        "samples_per_bit": "1",
+        "low": "V",
+        "high": "V",
+        "rise_time": "s"
+      }
+    },
+    {
+      "name": "laser",
+      "type_id": "optobuild.source.cw_laser",
+      "version": "1.2.0",
+      "parameters": {
+        "power": 0.001,
+        "wavelength": 1.55e-06,
+        "phase": 0.0,
+        "frequency_offset": 0.0,
+        "n_samples": 2048,
+        "sample_rate": 160000000000.0,
+        "timing_source": "layout",
+        "linewidth": 0.0
+      },
+      "units": {
+        "power": "W",
+        "wavelength": "m",
+        "phase": "rad",
+        "frequency_offset": "Hz",
+        "n_samples": "1",
+        "sample_rate": "Hz",
+        "linewidth": "Hz"
+      }
+    },
+    {
+      "name": "mzm",
+      "type_id": "optobuild.modulator.mzm",
+      "version": "1.0.0",
+      "parameters": {
+        "v_pi": 4.0,
+        "v_bias": -2.0,
+        "insertion_loss": 0.31622776601683794,
+        "extinction_ratio": 1000.0,
+        "phi0": 0.0
+      },
+      "units": {
+        "v_pi": "V",
+        "v_bias": "V",
+        "insertion_loss": "1",
+        "extinction_ratio": "1",
+        "phi0": "rad"
+      }
+    },
+    {
+      "name": "fiber",
+      "type_id": "optobuild.channel.linear_fiber",
+      "version": "1.0.0",
+      "parameters": {
+        "length": 50000.0,
+        "attenuation": 4.605170185988092e-05,
+        "dispersion": 1.7e-05,
+        "dispersion_slope": 0.0,
+        "group_index": 1.4682
+      },
+      "units": {
+        "length": "m",
+        "attenuation": "1/m",
+        "dispersion": "s/m^2",
+        "dispersion_slope": "s/m^3",
+        "group_index": "1"
+      }
+    },
+    {
+      "name": "pin",
+      "type_id": "optobuild.detector.pin",
+      "version": "1.0.0",
+      "parameters": {
+        "responsivity": 0.8,
+        "dark_current": 1e-08,
+        "temperature": 300.0,
+        "load_resistance": 50.0,
+        "shot_noise": true,
+        "thermal_noise": true
+      },
+      "units": {
+        "responsivity": "A/W",
+        "dark_current": "A",
+        "temperature": "K",
+        "load_resistance": "ohm"
+      }
+    },
+    {
+      "name": "filter",
+      "type_id": "optobuild.electrical.lowpass_filter",
+      "version": "1.0.0",
+      "parameters": {
+        "kind": "bessel",
+        "bandwidth": 7500000000.0,
+        "order": 4
+      },
+      "units": {
+        "bandwidth": "Hz",
+        "order": "1"
+      }
+    },
+    {
+      "name": "decision",
+      "type_id": "optobuild.electrical.decision",
+      "version": "1.0.0",
+      "parameters": {
+        "timing": "max_variance",
+        "sampling_phase": 0.5,
+        "threshold_mode": "mean",
+        "threshold": 0.0
+      },
+      "units": {
+        "sampling_phase": "1",
+        "threshold": "input"
+      }
+    },
+    {
+      "name": "ber",
+      "type_id": "optobuild.analyzer.ber",
+      "version": "1.0.0",
+      "parameters": {
+        "align": true
+      },
+      "units": {}
+    },
+    {
+      "name": "tx_power",
+      "type_id": "optobuild.analyzer.optical_power_meter",
+      "version": "1.0.0",
+      "parameters": {},
+      "units": {}
+    },
+    {
+      "name": "rx_power",
+      "type_id": "optobuild.analyzer.optical_power_meter",
+      "version": "1.0.0",
+      "parameters": {},
+      "units": {}
+    },
+    {
+      "name": "tx_spectrum",
+      "type_id": "optobuild.analyzer.optical_spectrum",
+      "version": "1.0.0",
+      "parameters": {
+        "resolution_bandwidth": 12500000000.0
+      },
+      "units": {
+        "resolution_bandwidth": "Hz"
+      }
+    },
+    {
+      "name": "eye",
+      "type_id": "optobuild.analyzer.eye_diagram",
+      "version": "1.1.0",
+      "parameters": {
+        "symbols_per_trace": 2
+      },
+      "units": {
+        "symbols_per_trace": "1"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": [
+        "prbs",
+        "out"
+      ],
+      "to": [
+        "nrz",
+        "bits"
+      ]
+    },
+    {
+      "from": [
+        "nrz",
+        "out"
+      ],
+      "to": [
+        "mzm",
+        "drive"
+      ]
+    },
+    {
+      "from": [
+        "laser",
+        "out"
+      ],
+      "to": [
+        "mzm",
+        "optical_in"
+      ]
+    },
+    {
+      "from": [
+        "mzm",
+        "optical_out"
+      ],
+      "to": [
+        "fiber",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "mzm",
+        "optical_out"
+      ],
+      "to": [
+        "tx_power",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "mzm",
+        "optical_out"
+      ],
+      "to": [
+        "tx_spectrum",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "fiber",
+        "out"
+      ],
+      "to": [
+        "pin",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "fiber",
+        "out"
+      ],
+      "to": [
+        "rx_power",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "pin",
+        "out"
+      ],
+      "to": [
+        "filter",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "filter",
+        "out"
+      ],
+      "to": [
+        "decision",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "filter",
+        "out"
+      ],
+      "to": [
+        "eye",
+        "in"
+      ]
+    },
+    {
+      "from": [
+        "decision",
+        "bits"
+      ],
+      "to": [
+        "ber",
+        "received"
+      ]
+    },
+    {
+      "from": [
+        "prbs",
+        "out"
+      ],
+      "to": [
+        "ber",
+        "reference"
+      ]
+    }
+  ],
+  "schematic": {}
+}

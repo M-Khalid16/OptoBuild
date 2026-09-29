@@ -1,8 +1,7 @@
 # Component API
 
-Status: **interface defined** (`optobuild.components.base`,
-`optobuild.components.spec`); parameter validation, registry and concrete
-components arrive in Phase 1–2. Decision record: ADR-0004.
+Status: **implemented (Phase 1)** in `optobuild.components.base`,
+`.spec`, `.registry`, `.reference`. Decision records: ADR-0004, ADR-0009.
 
 ## 1. Contract
 
@@ -46,7 +45,7 @@ class MachZehnderModulator(Component):
 | category | `category: ComponentCategory` | palette grouping and docs |
 | typed ports | `input_ports`, `output_ports` (`PortSpec`) | names unique per direction; kind from `SignalKind` |
 | parameter schema | `parameter_specs` (`ParameterSpec`) | SI `unit`, optional `display_unit`, range, choices, symbol, description |
-| parameter validation | `validate() -> list[Diagnostic]` | schema checks (Phase 1, in the base class) + cross-parameter physics checks (subclass) |
+| parameter validation | `__init__` (schema) + `validate() -> list[Diagnostic]` (cross-parameter) | invalid parameters raise `InvalidParameterError` at construction, listing every problem; warnings kept in `diagnostics` (ADR-0009) |
 | execution | `run(inputs, context) -> {port: signal}` | pure function of parameters, inputs and `context.rng` |
 | metadata / docs | class docstring via `documentation()`; physics docs linked | equations documented once, in physics docs |
 
@@ -92,19 +91,31 @@ are **not** expressed as graph cycles in the feed-forward executor (ADR-0005).
 
 | Member | Purpose |
 |---|---|
-| `rng` | `numpy.random.Generator` private to this component instance, derived from the project seed (ADR-0008) |
+| `rng` | `numpy.random.Generator` private to this component instance, derived from (project seed, name[, trial]) (ADR-0008); **only for components declaring `stochastic = True`** (ADR-0012) |
+| `layout` | the run's `SimulationLayout` (bit rate, bits, samples per bit) or `None` (ADR-0011) |
 | `logger` | `logging.Logger` named `optobuild.run.<component name>` |
 | `check_cancelled()` | raises `SimulationCancelledError`; long loops call it periodically |
 | `report_progress(fraction, message)` | progress in [0, 1] |
+| `record(key, value)` | store an analysis result (number, string, array, tuple, dataclass); arrays are copied read-only (ADR-0009) |
+| `warn(diagnostic)` | attach a run-time `Diagnostic` (e.g. aliasing risk) to the node's results |
 
 Components must not create their own generators, read global state, or
-perform I/O other than logging.
+perform I/O other than logging. A component that draws random numbers sets
+the class attribute `stochastic = True`; the engine refuses `rng` access
+otherwise, because only stochastic components have the seed and trial in
+their cache keys.
+
+Source components that can follow the global layout declare the shared
+parameter `TIMING_SOURCE_SPEC` (`timing_source` = `parameters` | `layout`) and
+obtain the layout with `require_layout(context, name)`.
 
 ## 5. Errors and diagnostics
 
-* Parameter problems: `validate()` returns `Diagnostic` records; the engine
-  refuses to run a graph with `ERROR` diagnostics, and attaches warnings to
-  results.
+* Parameter problems: construction raises `InvalidParameterError` naming
+  every invalid value with its SI unit and range; a component instance is
+  therefore always valid. `validate()` warnings are kept on the instance and
+  reported by `SimulationGraph.validate()`; graphs with `ERROR` diagnostics
+  (e.g. unconnected inputs) are refused by the executor.
 * Wrong input kinds at run time (should be prevented by graph validation):
   `SignalTypeError`.
 * Numerical problems discovered during `run` (e.g. aliasing): warnings via
@@ -115,11 +126,30 @@ perform I/O other than logging.
 
 ## 6. Registry and plugins
 
-Phase 1 adds a `ComponentRegistry` mapping `type_id -> class`, used by
-persistence to instantiate components from project files. Registration is
-explicit (no import-time side effects on a global mutable registry beyond the
-built-in library); plugins (Phase 10) register through Python entry points
-(`optobuild.components` group).
+`ComponentRegistry` maps `type_id -> class` and is used by persistence to
+instantiate components from project files. Registries are ordinary objects;
+`builtin_registry()` returns a fresh registry holding
+`components.library.BUILTIN_COMPONENTS` (no global mutable singleton).
+Plugins register through Python entry points (group `optobuild.components`,
+`optobuild.plugins.discovery`, ADR-0021): an installed package exports a
+`Component` subclass or an iterable of them, e.g.
+
+```toml
+[project.entry-points."optobuild.components"]
+my_parts = "my_package.optobuild_plugin:COMPONENTS"
+```
+
+Loading is explicit (`plugin_registry()`, CLI `--plugins`); a plugin that
+fails or reuses an existing `type_id` is reported and skipped. Plugins are
+ordinary Python code: install only packages you trust. Project files never
+name code, only `type_id` strings.
+
+## 6a. Reference components
+
+`components.reference` provides deterministic, trivially predictable blocks
+(`RampSource`, `Gain`, `Adder`, `GaussianNoise`, `Recorder`) so the graph,
+engine, cache, persistence and seeding can be validated exactly, independent
+of optical physics (`optobuild demo reference`).
 
 ## 7. Testing requirements for each component
 

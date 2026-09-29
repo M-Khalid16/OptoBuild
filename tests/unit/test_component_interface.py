@@ -19,11 +19,18 @@ class _Ctx:
     def __init__(self) -> None:
         self.rng = np.random.default_rng(0)
         self.logger = logging.getLogger("test")
+        self.layout = None
 
     def check_cancelled(self) -> None:
         pass
 
     def report_progress(self, fraction: float, message: str = "") -> None:
+        pass
+
+    def record(self, key: str, value: Any) -> None:
+        pass
+
+    def warn(self, diagnostic: Any) -> None:
         pass
 
 

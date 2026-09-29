@@ -20,3 +20,16 @@ nav:
       - ADR-0006 Project persistence: decisions/0006-project-persistence.md
       - ADR-0007 Numerical backend: decisions/0007-numerical-backend.md
       - ADR-0008 Reproducible randomness: decisions/0008-reproducible-randomness.md
+      - ADR-0009 Validation and results: decisions/0009-construction-validation-and-results.md
+      - ADR-0010 Grids and bit timing: decisions/0010-sampling-grid-and-bit-timing.md
+      - ADR-0011 Global layout: decisions/0011-global-simulation-layout.md
+      - ADR-0012 Stochastic components and trials: decisions/0012-stochastic-components-and-trials.md
+      - ADR-0013 GUI architecture: decisions/0013-gui-architecture.md
+      - ADR-0014 SSFM: decisions/0014-ssfm.md
+      - ADR-0015 FSO channel: decisions/0015-fso-channel.md
+      - ADR-0016 Coherent single-pol: decisions/0016-coherent-single-pol.md
+      - ADR-0017 Dual-pol coherent: decisions/0017-dual-polarization-coherent.md
+      - ADR-0018 Photonic circuits: decisions/0018-photonic-circuits.md
+      - ADR-0019 Laser models: decisions/0019-laser-models.md
+      - ADR-0020 Ultrafast and cavities: decisions/0020-ultrafast-and-cavities.md
+      - ADR-0021 Studies, reports, plugins: decisions/0021-studies-reports-plugins-acceleration.md
